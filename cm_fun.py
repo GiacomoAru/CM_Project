@@ -1,4 +1,7 @@
 import numpy as np
+import time
+import pandas as pd
+import os
 
 #TODO: corretta
 def thin_qr_factorization(A):
@@ -113,3 +116,115 @@ def objective_function(A, U, V):
     frobenius_norm = np.linalg.norm(difference, 'fro')
     
     return frobenius_norm
+
+def get_starting_matrix(n, k, method='random'):
+    """
+    Create the staring matrix given the row and columns count, using the method given in input
+    
+    Parameters:
+        n (int): The row count of the matrix V
+        k (int): The columns count the matrix V
+
+    Returns:
+        V (np.ndarray): The matrix V (nxk) initialisated with the selected method
+    """
+    
+    if method == 'random':
+        return np.random.rand(n, k)
+    else:
+        print('METHOD NOT FOUND, USING DEFAULT METHOD: RANDOM')
+        return np.random.rand(n, k)
+
+
+def start(A, k, test_name='test_name', data_folder='./data/test'):
+    
+    machine_precision = 1e-10
+
+    
+    liv_len = 2
+    last_iteration_values = [x for x in range(liv_len)]
+    max_iter = 10000
+    
+    m,n = A.shape
+    start_time = None
+    iteration_num = 0
+    data_dict = {'obj_fun':[], 'U_norm':[], 'V_norm':[], 'iteration_time':[], 'iteration_id':[]}
+    
+    V_0 = get_starting_matrix(n, k)
+    V_t = V_0.copy()
+    norm_V_t = np.linalg.norm(V_t)
+    
+    while (abs(last_iteration_values[0] - last_iteration_values[-1])) > machine_precision and \
+            max_iter > iteration_num:
+        
+        # start_time to measure execution time
+        start_time = time.time()
+        
+        # computing U
+        V_r, householder_vectors = thin_qr_factorization(V_t)
+        AQ = apply_householder_transformations(A, householder_vectors)
+        U_t = backward_substitution(AQ, np.transpose(V_r))
+
+        # computing execution time
+        exec_time_1 = time.time() - start_time
+        
+        # saving data of the iteration
+        obj_fun_1 = objective_function(A,U_t,V_t) 
+        norm_U_t = np.linalg.norm(U_t)
+        
+        data_dict['obj_fun'].append(obj_fun_1)
+        data_dict['U_norm'].append(norm_U_t)
+        data_dict['V_norm'].append(norm_V_t)
+        
+        data_dict['iteration_time'].append(exec_time_1)
+        data_dict['iteration_id'].append(iteration_num)
+        
+        fancy_print(test_name, iteration_num, obj_fun_1, norm_U_t, norm_V_t, exec_time_1)
+        
+        
+        # start_time to measure execution time
+        start_time = time.time()
+        
+        # computing V
+        U_r, householder_vectors = thin_qr_factorization(U_t)
+        AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
+        V_t = backward_substitution(AQ, np.transpose(U_r))
+        
+        # computing execution time
+        exec_time_2 = time.time() - start_time
+        
+        # saving data of the iteration
+        obj_fun_2 = objective_function(A,U_t,V_t) 
+        norm_V_t = np.linalg.norm(V_t)
+        
+        data_dict['obj_fun'].append(obj_fun_2)
+        data_dict['U_norm'].append(norm_U_t)
+        data_dict['V_norm'].append(norm_V_t)
+        
+        data_dict['iteration_time'].append(exec_time_2)
+        data_dict['iteration_id'].append(iteration_num)
+        
+        fancy_print(test_name, iteration_num, obj_fun_2, norm_U_t, norm_V_t, exec_time_2)
+        
+        
+        last_iteration_values.pop(0)
+        last_iteration_values.append(obj_fun_2)
+        iteration_num += 1
+        
+        
+    save_data(A, U_t, V_0, V_t, data_dict, data_folder + '/' + test_name)
+
+def fancy_print(name, iteration_num, obj_fun_1, norm_U, norm_V, exec_time):
+    print(name + f' | it={iteration_num} | {exec_time} | obj={obj_fun_1} | U_norm={norm_U} | V_norm={norm_V} |')
+    
+def save_data(A, U, V_0, V, data_dict, directory):
+    
+    os.makedirs(directory, exist_ok=True)
+    
+    df = pd.DataFrame(data_dict)
+    df.to_csv(directory + '/data.csv')
+    
+    np.save(directory + "/A.npy", A)
+    np.save(directory + "/V_0.npy", V_0)
+    np.save(directory + "/U.npy", U)
+    np.save(directory + "/V.npy", V)
