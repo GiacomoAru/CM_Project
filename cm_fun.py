@@ -136,11 +136,10 @@ def get_starting_matrix(n, k, method='random'):
         print('METHOD NOT FOUND, USING DEFAULT METHOD: RANDOM')
         return np.random.rand(n, k)
 
-
 def start(A, k, test_name='test_name', data_folder='./data/test'):
     
-    epsilon = sys.float_info.epsilon
-    
+    # stop handler
+    epsilon = sys.float_info.epsilon # machine precision
     liv_len = 2
     last_iteration_values = [x for x in range(1, liv_len+1)]
     max_iter = 10000
@@ -154,6 +153,7 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
     
+    # iterate until convergence or until a maximum number of iterations is reached
     while (abs(last_iteration_values[0] - last_iteration_values[-1])) >= epsilon * max(abs(last_iteration_values[0]), abs(last_iteration_values[-1]), 1.0) \
         and max_iter > iteration_num:
         
@@ -179,7 +179,7 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
         data_dict['iteration_time'].append(exec_time_1)
         data_dict['iteration_id'].append(iteration_num)
         
-        fancy_print(test_name, iteration_num, obj_fun_1, norm_U_t, norm_V_t, exec_time_1)
+        _fancy_print(test_name, iteration_num, obj_fun_1, norm_U_t, norm_V_t, exec_time_1)
         
         
         # start_time to measure execution time
@@ -204,7 +204,7 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
         data_dict['iteration_time'].append(exec_time_2)
         data_dict['iteration_id'].append(iteration_num)
         
-        fancy_print(test_name, iteration_num, obj_fun_2, norm_U_t, norm_V_t, exec_time_2)
+        _fancy_print(test_name, iteration_num, obj_fun_2, norm_U_t, norm_V_t, exec_time_2)
         
         
         last_iteration_values.pop(0)
@@ -212,12 +212,13 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
         iteration_num += 1
         
         
-    save_data(A, U_t, V_0, V_t, data_dict, data_folder + '/' + test_name)
+    _save_data(A, U_t, V_0, V_t, data_dict, data_folder + '/' + test_name)
 
-def fancy_print(name, iteration_num, obj_fun_1, norm_U, norm_V, exec_time):
+
+def _fancy_print(name, iteration_num, obj_fun_1, norm_U, norm_V, exec_time):
     print(name + f' | it={iteration_num} | {exec_time:.3f}s | obj={obj_fun_1} | U_norm={norm_U} | V_norm={norm_V} |')
     
-def save_data(A, U, V_0, V, data_dict, directory):
+def _save_data(A, U, V_0, V, data_dict, directory):
     
     os.makedirs(directory, exist_ok=True)
     
