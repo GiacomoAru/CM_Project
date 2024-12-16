@@ -2,6 +2,7 @@ import numpy as np
 import time
 import pandas as pd
 import os
+import sys
 
 #TODO: corretta
 def thin_qr_factorization(A):
@@ -138,8 +139,7 @@ def get_starting_matrix(n, k, method='random'):
 
 def start(A, k, test_name='test_name', data_folder='./data/test'):
     
-    machine_precision = 10e-16
-
+    epsilon = sys.float_info.epsilon
     
     liv_len = 2
     last_iteration_values = [x for x in range(1, liv_len+1)]
@@ -154,8 +154,8 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
     
-    while (abs((last_iteration_values[0] - last_iteration_values[-1])/last_iteration_values[0])) > machine_precision and \
-            max_iter > iteration_num:
+    while (abs(last_iteration_values[0] - last_iteration_values[-1])) >= epsilon * max(abs(last_iteration_values[0]), abs(last_iteration_values[-1]), 1.0) \
+        and max_iter > iteration_num:
         
         # start_time to measure execution time
         start_time = time.time()
