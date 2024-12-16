@@ -138,11 +138,11 @@ def get_starting_matrix(n, k, method='random'):
 
 def start(A, k, test_name='test_name', data_folder='./data/test'):
     
-    machine_precision = 1e-10
+    machine_precision = 10e-16
 
     
     liv_len = 2
-    last_iteration_values = [x for x in range(liv_len)]
+    last_iteration_values = [x for x in range(1, liv_len+1)]
     max_iter = 10000
     
     m,n = A.shape
@@ -154,7 +154,7 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
     
-    while (abs(last_iteration_values[0] - last_iteration_values[-1])) > machine_precision and \
+    while (abs((last_iteration_values[0] - last_iteration_values[-1])/last_iteration_values[0])) > machine_precision and \
             max_iter > iteration_num:
         
         # start_time to measure execution time
@@ -215,7 +215,7 @@ def start(A, k, test_name='test_name', data_folder='./data/test'):
     save_data(A, U_t, V_0, V_t, data_dict, data_folder + '/' + test_name)
 
 def fancy_print(name, iteration_num, obj_fun_1, norm_U, norm_V, exec_time):
-    print(name + f' | it={iteration_num} | {exec_time} | obj={obj_fun_1} | U_norm={norm_U} | V_norm={norm_V} |')
+    print(name + f' | it={iteration_num} | {exec_time:.3f}s | obj={obj_fun_1} | U_norm={norm_U} | V_norm={norm_V} |')
     
 def save_data(A, U, V_0, V, data_dict, directory):
     
