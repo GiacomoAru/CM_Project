@@ -186,7 +186,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
     
     start_time = qr_time = manip_time = bw_time = None
     iteration_num = 0
-    data_dict = {'obj_fun':[], 'UV_norm':[], 
+    data_dict = {'obj_fun':[], # 'UV_norm':[], 
                  'U_norm':[], 'V_norm':[], 
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
@@ -220,7 +220,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
         norm_U_t = np.linalg.norm(U_t)
         
         data_dict['obj_fun'].append(obj_fun)
-        data_dict['UV_norm'].append(norm_UV)
+        # data_dict['UV_norm'].append(norm_UV)
         data_dict['U_norm'].append(norm_U_t)
         data_dict['V_norm'].append(norm_V_t)
         
@@ -253,7 +253,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
         norm_V_t = np.linalg.norm(V_t)
         
         data_dict['obj_fun'].append(obj_fun)
-        data_dict['UV_norm'].append(norm_UV)
+        # data_dict['UV_norm'].append(norm_UV)
         data_dict['U_norm'].append(norm_U_t)
         data_dict['V_norm'].append(norm_V_t)
         
@@ -299,39 +299,28 @@ def _full_pc_info():
     total_disk = psutil.disk_usage('/').total / (1024 ** 3)  # in GB
     free_disk = psutil.disk_usage('/').free / (1024 ** 3)  # in GB
 
-    # IP Address and Hostname
-    ip_address = socket.gethostbyname(socket.gethostname())
-
     # Unique Machine ID (MAC Address)
     unique_id = str(uuid.getnode())  # MAC address, often used as unique identifier
-
-    # Network Interfaces (only available on systems that support psutil)
-    if hasattr(psutil, 'net_if_addrs'):
-        network_interfaces = str(psutil.net_if_addrs())  # Convert to string for easy DataFrame insertion
-    else:
-        network_interfaces = 'Not available'
 
     # Storage System
     storage_system = os.name  # 'posix' for Linux/Mac, 'nt' for Windows
 
     # Creating a dictionary to hold all the information
     data = {
-        'operating_system': [f"{os_name} {os_version}"],
-        'pc_name': [pc_name],
-        'architecture': [architecture],
-        'machine': [machine],
-        'processor': [processor],
-        'physical_cores': [physical_cores],
-        'logical_cores': [logical_cores],
-        'cpu_frequency_mhz': [cpu_frequency],
-        'total_memory_gb': [total_memory],
-        'available_memory_gb': [available_memory],
-        'total_disk_space_gb': [total_disk],
-        'free_disk_space_gb': [free_disk],
-        'ip_address': [ip_address],
-        'network_interfaces': [network_interfaces],
-        'unique_machine_id_mac_address': [unique_id],
-        'storage_system': [storage_system]
+        'operating_system': f"{os_name} {os_version}",
+        'pc_name': pc_name,
+        'architecture': architecture,
+        'machine': machine,
+        'processor': processor,
+        'physical_cores': physical_cores,
+        'logical_cores': logical_cores,
+        'cpu_frequency_mhz': cpu_frequency,
+        'total_memory_gb': total_memory,
+        'available_memory_gb': available_memory,
+        'total_disk_space_gb': total_disk,
+        'free_disk_space_gb': free_disk,
+        'unique_machine_id_mac_address': unique_id,
+        'storage_system': storage_system
     }
     
     return data

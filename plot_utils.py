@@ -148,7 +148,7 @@ def plot_dataframe(test_name, plot_time=False):
         fig = make_subplots(rows=2, cols=1, subplot_titles=["Objective Function and Norms", "Timing Data"])
 
         # First plot: Objective function and norms
-        for col in ['obj_fun', 'UV_norm', 'U_norm', 'V_norm']:
+        for col in ['obj_fun', 'U_norm', 'V_norm']:#, 'UV_norm']:
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -198,7 +198,7 @@ def plot_dataframe(test_name, plot_time=False):
         fig = go.Figure()
 
         # Add traces for objective function and norms
-        for col in ['obj_fun', 'UV_norm', 'U_norm', 'V_norm']:
+        for col in ['obj_fun', 'U_norm', 'V_norm']:#, 'UV_norm']:
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -236,7 +236,7 @@ def plot_global_df(x='m_n', y='k', filter={}):
         
     df['m_n'] = df['m']*df['n']
     
-    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','UV_norm','U_norm','V_norm']
+    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm'] # ,'UV_norm']
     
     # Initialize figure
     fig = go.Figure()
@@ -305,7 +305,7 @@ def compute_global_stats_df():
         'm':[], 'n':[], 'k':[], 
         'iteration':[], 'exec_time':[], 
         'qr_time':[], 'manip_time':[], 'bw_time':[],
-        'obj_fun':[], 'UV_norm':[],
+        'obj_fun':[], # 'UV_norm':[],
         'U_norm':[], 'V_norm':[]
     }
     
@@ -332,7 +332,7 @@ def compute_global_stats_df():
             global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
     
             global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
-            global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
+            # global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
             global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
             global_df['V_norm'].append(dummy_df['V_norm'].values[-1])
             
