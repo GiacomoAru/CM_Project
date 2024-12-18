@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 # all zip file
 *.zip
+
+# all tests
+*/test/*
