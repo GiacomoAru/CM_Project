@@ -159,20 +159,21 @@ def get_starting_matrix(A, k, method='uniform'):
         print('METHOD NOT FOUND, USING DEFAULT METHOD: normal')
         return np.random.normal(0, 1, (n, k))
 
-def start(A, k, test_class='test_class', test_name='test_name', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = sys.float_info.epsilon):
+def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
+          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps):
     if liv_len < 2:
         liv_len = 2
     if max_iter < 1:
         max_iter = 1   
-    if epsilon < sys.float_info.epsilon:
-        epsilon = sys.float_info.epsilon
+    if epsilon < np.finfo(np.float64).eps:
+        epsilon = np.finfo(np.float64).eps
         
     # Get current date and time
     input_values = {
         'k':k,
-        'test_class': test_class,
-        'test_name': test_name,
+        'c_name': c_name,
+        'm_name': m_name,
+        't_name': t_name,
         'init_method': init_method,
         'data_folder': data_folder,
         'max_iter': max_iter,
@@ -196,7 +197,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
     norm_V_t = np.linalg.norm(V_t)
     
     # iterate until convergence or until a maximum number of iterations is reached
-    while (abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * max(abs(last_iteration_values[0]), abs(last_iteration_values[-1])) \
+    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * np.max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
         and max_iter > iteration_num:
             
         
@@ -229,7 +230,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        _fancy_print(test_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        _fancy_print(m_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
 
 
 
@@ -262,7 +263,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        _fancy_print(test_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        _fancy_print(m_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
         
         
         
@@ -271,8 +272,7 @@ def start(A, k, test_class='test_class', test_name='test_name', init_method='sno
         iteration_num += 1
         
         
-    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, test_class, test_name)
-
+    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, c_name, m_name, t_name)
 
 def _fancy_print(name, iteration_num, obj_fun, norm_UV, norm_U, norm_V, exec_time):
     print(name + f' | {iteration_num} | {exec_time:.3f}s | obj={obj_fun:.17f} | UV={norm_UV:.17f} | U={norm_U:.17f} | V={norm_V:.17f} |')
@@ -325,9 +325,9 @@ def _full_pc_info():
     
     return data
 
-def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, test_class, test_name):
+def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, c_name, m_name, t_name):
     
-    directory = data_folder + '/' + test_class + '-' + test_name
+    directory = data_folder + '/' + c_name + '/' + m_name + '/' + t_name
         
     os.makedirs(directory, exist_ok=True)
     
