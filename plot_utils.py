@@ -227,7 +227,6 @@ def plot_dataframe(test_name, plot_time=False):
 
         return fig
 
-
 def plot_global_df(test_name=None):
     df = pd.read_csv('./data/global_data.csv')
     
@@ -304,8 +303,6 @@ def plot_global_df(test_name=None):
 
     return fig
 
-
-
 def compute_global_stats_df():
     main_folder = Path("./data/test")
     global_df = {'test_name':[], 'init_method':[], 
@@ -330,7 +327,7 @@ def compute_global_stats_df():
             global_df['manip_time'].append(np.sum(dummy_df['manip_time'].values))
             global_df['bw_time'].append(np.sum(dummy_df['bw_time'].values))
             global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
-            
+    
             global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
             global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
             global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
@@ -343,7 +340,6 @@ def compute_global_stats_df():
             global_df['n'].append(A.shape[1])
             global_df['k'].append(U.shape[1])
             
-    global_df = pd.DataFrame(global_df)
     global_df.to_csv('./data/global_data.csv', index=False)
     
 def keep_n_files(folder, n):
@@ -369,6 +365,7 @@ def keep_n_files(folder, n):
 
     print(f"{n} random files have been kept. The others have been deleted.")
     
+
 def load_matrices(test_name, matrices={'U', 'V', 'A'}):
     ret = {}
     for el in matrices:

@@ -160,7 +160,7 @@ def get_starting_matrix(A, k, method='uniform'):
 
 def start(A, k, test_name='test_name', matrix_n, init_method='snormal', data_folder='./data/test', 
           max_iter = 20000, liv_len = 2, epsilon = sys.float_info.epsilon):
-    
+
     # stop handler
     last_iteration_values = [x + 1 for x in range(liv_len)]
     
