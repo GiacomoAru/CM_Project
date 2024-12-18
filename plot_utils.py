@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 import os
 import random
+import json
 
 def load_image_as_grayscale_matrix(image_path):
     """
@@ -26,7 +27,7 @@ def load_image_as_grayscale_matrix(image_path):
     # Convert the grayscale image to a NumPy array
     grayscale_matrix = np.array(grayscale_image)
     
-    return grayscale_matrix
+    return grayscale_matrix.astype('float64')
 
 def save_matrix_as_jpg(matrix, output_path):
     """
@@ -227,11 +228,11 @@ def plot_dataframe(test_name, plot_time=False):
 
         return fig
 
-def plot_global_df(test_name=None):
-    df = pd.read_csv('./data/global_data.csv')
+def plot_global_df(x='m_n', y='k', filter={}):
     
-    if test_name:
-        df = df[df['test_name'] == test_name]
+    df = pd.read_csv('./data/global_data.csv')
+    for f in filter:
+        df = df[df[f] == filter[f]]
         
     df['m_n'] = df['m']*df['n']
     
@@ -243,17 +244,17 @@ def plot_global_df(test_name=None):
     # Add Traces
     buttons = []
     for col in cols_to_show:
-        df['size'] = np.log( df[col]/max(df[col]) + 1)*50 + 10
+        df['size'] = ((df[col]- min(df[col])) / (max(df[col])-min(df[col])))*50 + 5
         df['color'] = df[col]
         fig.add_trace(
-            go.Scatter(x=df['k'],
-                    y=df['m_n'],
+            go.Scatter(x=df[x],
+                    y=df[y],
                     name=col,
                     mode='markers',  # Mostra solo i punti
                     marker=dict(
                         size=df['size'],  # La dimensione dei punti dipende da z
                         color=df['color'],  # Il colore dei punti dipende da z
-                        colorscale='Viridis',  # Scala cromatica (puoi cambiarla)
+                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
                         showscale=True, # Mostra la barra del colore
                     ),
                     visible = col == cols_to_show[0],
@@ -266,8 +267,7 @@ def plot_global_df(test_name=None):
         buttons.append(dict(label=col,
                             method="update",
                             args=[{"visible": visib},
-                                    {"title": col,
-                                        "annotations": []}]))
+                                    {"annotations": []}]))
 
     fig.update_layout(
         updatemenus=[
@@ -277,7 +277,7 @@ def plot_global_df(test_name=None):
                 direction="down",
                 pad={"r": 10, "t": 10},
                 showactive=True,
-                x=0.6,
+                x=0.1,
                 xanchor="left",
                 y=1.2,
                 yanchor="top"
@@ -285,19 +285,13 @@ def plot_global_df(test_name=None):
         ])
 
     fig.update_layout(
+            title='value shown:',
             height=600,
             width=1050,
             template="plotly",
-            xaxis_title="k",
-            yaxis_title="m*n",
-            yaxis=dict(type='log'),
-            legend=dict(
-                orientation='h',
-                y=-0.2,
-                x=0.5,
-                xanchor='center',
-                yanchor='top'
-            )
+            xaxis_title=x,
+            yaxis_title=y,
+            #yaxis=dict(type='log'),
         )
 
 
@@ -305,21 +299,30 @@ def plot_global_df(test_name=None):
 
 def compute_global_stats_df():
     main_folder = Path("./data/test")
-    global_df = {'test_name':[], 'init_method':[], 
-          'm':[], 'n':[], 'k':[], 
-          'iteration':[], 'exec_time':[], 
-          'qr_time':[], 'manip_time':[], 'bw_time':[],
-          'obj_fun':[], 'UV_norm':[],
-          'U_norm':[], 'V_norm':[]}
+    global_df = {
+        'test_class':[], 'test_name':[], 'init_method':[], 
+        'pc_name':[], 'date':[],
+        'm':[], 'n':[], 'k':[], 
+        'iteration':[], 'exec_time':[], 
+        'qr_time':[], 'manip_time':[], 'bw_time':[],
+        'obj_fun':[], 'UV_norm':[],
+        'U_norm':[], 'V_norm':[]
+    }
     
     for subfolder in main_folder.iterdir():
         if subfolder.is_dir(): 
             dummy_df = pd.read_csv((subfolder / 'data.csv').absolute())
+            with open(subfolder / 'input_values.json', 'r') as f:
+                input_values = json.loads(f.read())
+            with open(subfolder / 'pc_info.json', 'r') as f:
+                pc_info = json.loads(f.read())
+                
+            global_df['test_class'].append(input_values['test_class'])
+            global_df['test_name'].append(input_values['test_name'])
+            global_df['init_method'].append(input_values['init_method'])
             
-            name_split = subfolder.name.split('_')
-            
-            global_df['test_name'].append(name_split[0])
-            global_df['init_method'].append(name_split[-1])
+            global_df['pc_name'].append(pc_info['pc_name'])
+            global_df['date'].append(input_values['date'])
             
             global_df['iteration'].append(dummy_df['iteration_id'].values[-1])
             
@@ -339,7 +342,8 @@ def compute_global_stats_df():
             global_df['m'].append(A.shape[0])
             global_df['n'].append(A.shape[1])
             global_df['k'].append(U.shape[1])
-            
+    
+    global_df = pd.DataFrame(global_df)       
     global_df.to_csv('./data/global_data.csv', index=False)
     
 def keep_n_files(folder, n):
@@ -365,7 +369,6 @@ def keep_n_files(folder, n):
 
     print(f"{n} random files have been kept. The others have been deleted.")
     
-
 def load_matrices(test_name, matrices={'U', 'V', 'A'}):
     ret = {}
     for el in matrices:

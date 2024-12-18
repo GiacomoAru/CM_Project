@@ -8,6 +8,7 @@ import psutil
 import socket
 import uuid
 from datetime import datetime
+import json 
 
 def thin_qr_factorization(A):
     """
@@ -158,9 +159,28 @@ def get_starting_matrix(A, k, method='uniform'):
         print('METHOD NOT FOUND, USING DEFAULT METHOD: normal')
         return np.random.normal(0, 1, (n, k))
 
-def start(A, k, test_name='test_name', matrix_n, init_method='snormal', data_folder='./data/test', 
+def start(A, k, test_class='test_class', test_name='test_name', init_method='snormal', data_folder='./data/test', 
           max_iter = 20000, liv_len = 2, epsilon = sys.float_info.epsilon):
-
+    if liv_len < 2:
+        liv_len = 2
+    if max_iter < 1:
+        max_iter = 1   
+    if epsilon < sys.float_info.epsilon:
+        epsilon = sys.float_info.epsilon
+        
+    # Get current date and time
+    input_values = {
+        'k':k,
+        'test_class': test_class,
+        'test_name': test_name,
+        'init_method': init_method,
+        'data_folder': data_folder,
+        'max_iter': max_iter,
+        'liv_len': liv_len,
+        'epsilon': epsilon,
+        'date':datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
     # stop handler
     last_iteration_values = [x + 1 for x in range(liv_len)]
     
@@ -251,7 +271,7 @@ def start(A, k, test_name='test_name', matrix_n, init_method='snormal', data_fol
         iteration_num += 1
         
         
-    _save_data(A, U_t, V_0, V_t, data_dict, data_folder + '/' + test_name)
+    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, test_class, test_name)
 
 
 def _fancy_print(name, iteration_num, obj_fun, norm_UV, norm_U, norm_V, exec_time):
@@ -287,53 +307,39 @@ def _full_pc_info():
 
     # Network Interfaces (only available on systems that support psutil)
     if hasattr(psutil, 'net_if_addrs'):
-        network_interfaces = psutil.net_if_addrs()
+        network_interfaces = str(psutil.net_if_addrs())  # Convert to string for easy DataFrame insertion
     else:
         network_interfaces = 'Not available'
 
     # Storage System
     storage_system = os.name  # 'posix' for Linux/Mac, 'nt' for Windows
-    
-    # Get current date and time
-    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Constructing the report
-    report = (
-        f"--- Report generated on: {current_time} ---\n"
-        f"--- System Information ---\n"
-        f"Operating System: {os_name} {os_version}\n"
-        f"PC Name: {pc_name}\n"
-        f"Architecture: {architecture}\n"
-        f"Machine: {machine}\n"
-        f"Processor: {processor}\n"
-        
-        f"\n--- CPU Details ---\n"
-        f"Physical Cores: {physical_cores}\n"
-        f"Logical Cores: {logical_cores}\n"
-        f"CPU Frequency: {cpu_frequency} MHz\n"
-        
-        f"\n--- Memory ---\n"
-        f"Total Memory: {total_memory:.2f} GB\n"
-        f"Available Memory: {available_memory:.2f} GB\n"
-        
-        f"\n--- Disk ---\n"
-        f"Total Disk Space: {total_disk:.2f} GB\n"
-        f"Free Disk Space: {free_disk:.2f} GB\n"
-        
-        f"\n--- Network Details ---\n"
-        f"IP Address: {ip_address}\n"
-        f"Network Interfaces: {network_interfaces}\n"
-        
-        f"\n--- Unique Machine ID ---\n"
-        f"Unique Machine ID (MAC address): {unique_id}\n"
-        
-        f"\n--- Storage System ---\n"
-        f"Storage System: {storage_system}\n"
-    )
-    
-    return report
 
-def _save_data(A, U, V_0, V, data_dict, directory):    
+    # Creating a dictionary to hold all the information
+    data = {
+        'operating_system': [f"{os_name} {os_version}"],
+        'pc_name': [pc_name],
+        'architecture': [architecture],
+        'machine': [machine],
+        'processor': [processor],
+        'physical_cores': [physical_cores],
+        'logical_cores': [logical_cores],
+        'cpu_frequency_mhz': [cpu_frequency],
+        'total_memory_gb': [total_memory],
+        'available_memory_gb': [available_memory],
+        'total_disk_space_gb': [total_disk],
+        'free_disk_space_gb': [free_disk],
+        'ip_address': [ip_address],
+        'network_interfaces': [network_interfaces],
+        'unique_machine_id_mac_address': [unique_id],
+        'storage_system': [storage_system]
+    }
+    
+    return data
+
+def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, test_class, test_name):
+    
+    directory = data_folder + '/' + test_class + '-' + test_name
+        
     os.makedirs(directory, exist_ok=True)
     
     df = pd.DataFrame(data_dict)
@@ -344,5 +350,7 @@ def _save_data(A, U, V_0, V, data_dict, directory):
     np.save(directory + "/U.npy", U)
     np.save(directory + "/V.npy", V)
     
-    with open(directory + "/report.txt", 'w+') as f:
-        f.write(_full_pc_info())
+    with open(directory + "/input_values.json", 'w+') as f:
+        f.write(json.dumps(input_values))
+    with open(directory + "/pc_info.json", 'w+') as f:
+        f.write(json.dumps(_full_pc_info()))
