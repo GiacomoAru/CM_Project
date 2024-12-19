@@ -58,7 +58,7 @@ def backward_substitution(A, T):
         X (numpy.ndarray): Solution matrix of size n x k.
     """
     n, k = A.shape
-    X = np.zeros_like(A)
+    X = np.zeros_like(A).astype('float64')
 
     # for each column of X
     for i in range(k-1, -1, -1):
@@ -117,50 +117,75 @@ def objective_function(A, U, V):
     
     return frobenius_norm
 
-def get_starting_matrix(A, k, method='uniform'):
+def get_starting_matrix(A, k, method='sketching_g', seed=None):
     """
-    Create the staring matrix given the row and columns count, using the method given in input
+    Create the starting matrix given the row and columns count, using the method given in input
     
     Parameters:
-        n (int): The row count of the matrix V
-        k (int): The columns count the matrix V
+        A (np.ndarray): The input matrix whose size determines the dimensions of the starting matrix
+        k (int): The number of columns in the matrix V
+        method (str): The method for initialization ('rand_u', 'rand_n', 'scaled_u', 'scaled_n', 'sketching_g', 'sketching_b')
+        seed (int, optional): The seed for random number generation (default is None, which means random seed)
 
     Returns:
-        V (np.ndarray): The matrix V (nxk) initialisated with the selected method
+        V (np.ndarray): The matrix V (n x k) initialized with the selected method
     """
     
-    m,n = A.shape
+    m, n = A.shape
+    
+    # Create a random number generator with the given seed (or default if None)
+    rng = np.random.default_rng(seed)
     
     # uniform
-    if method == 'uniform':
-        return np.random.uniform(-1, 1, (n, k))
+    if method == 'rand_u':
+        return rng.uniform(-1, 1, (n, k))
     
     # normal / gaussian distribution
-    if method == 'normal':
-        return np.random.normal(0, 1, (n, k))
+    if method == 'rand_n':
+        return rng.normal(0, 1, (n, k))
     
     # uniform but ||V|| = sqrt(||A||) -> ||V|| ~ ||U||
-    if method == 'suniform':
-        
+    if method == 'scaled_u':
         frob_A = np.linalg.norm(A, 'fro')
-        max = np.sqrt(3*np.sqrt(frob_A)**2/(n*k))
-        
-        return np.random.uniform(-max, max, (n, k))
+        max_val = np.sqrt(3 * np.sqrt(frob_A)**2 / (n * k))
+        return rng.uniform(-max_val, max_val, (n, k))
     
     # normal but ||V|| = sqrt(||A||) -> ||V|| ~ ||U||
-    if method == 'snormal':
-        
+    if method == 'scaled_n':
         frob_A = np.linalg.norm(A, 'fro')  
-        gamma = np.sqrt(frob_A)/np.sqrt(n*k)
+        gamma = np.sqrt(frob_A) / np.sqrt(n * k)
+        return rng.normal(0, gamma, (n, k))
+    
+    # Sketching with Gaussian distribution
+    if method == 'sketching_g':
         
-        return np.random.normal(0, gamma, (n, k))
+        V = np.transpose(rng.normal(0, 1, (k, m)) @ A)
+        frob_A = np.linalg.norm(A, 'fro')
+        frob_V = np.linalg.norm(V, 'fro')
+        return (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))
+    
+    # Sketching with Bernoulli distribution (-1, 1)
+    if method == 'sketching_b':
+        
+        V = np.transpose(rng.choice([1, -1], size=(k, m)) @ A)
+        frob_A = np.linalg.norm(A, 'fro')
+        frob_V = np.linalg.norm(V, 'fro')
+        return (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))
+    
+    # Sketching with Gaussian distribution
+    if method == 'semi-orthogonal':
+        
+        R, h_v = thin_qr_factorization(rng.normal(0, 1, (n, k)))
+        return apply_householder_transformations(np.eye(n), h_v)
     
     else:
-        print('METHOD NOT FOUND, USING DEFAULT METHOD: normal')
-        return np.random.normal(0, 1, (n, k))
+        print('METHOD NOT FOUND, USING DEFAULT METHOD: rand_n')
+        return rng.normal(0, 1, (n, k))
+
 
 def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps):
+          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None):
+    
     if liv_len < 2:
         liv_len = 2
     if max_iter < 1:
@@ -179,6 +204,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         'max_iter': max_iter,
         'liv_len': liv_len,
         'epsilon': epsilon,
+        'seed':seed,
         'date':datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
     
@@ -192,14 +218,14 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
     
-    V_0 = get_starting_matrix(A, k, init_method)
+    V_0 = get_starting_matrix(A, k, init_method, seed)
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
     
     # iterate until convergence or until a maximum number of iterations is reached
-    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * np.max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
+    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
         and max_iter > iteration_num:
-            
+        
         
         # computing U
         start_time = time.time()
@@ -216,7 +242,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         # saving data of the iteration
         UV = np.dot(U_t, np.transpose(V_t))
         
-        norm_UV = np.linalg.norm(UV, 'fro')
+        # norm_UV = np.linalg.norm(UV, 'fro')
         obj_fun = np.linalg.norm(A - UV, 'fro')
         norm_U_t = np.linalg.norm(U_t)
         
@@ -230,7 +256,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        _fancy_print(m_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
 
 
 
@@ -249,7 +275,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         # saving data of the iteration
         UV = np.dot(U_t, np.transpose(V_t))
         
-        norm_UV = np.linalg.norm(UV, 'fro')
+        # norm_UV = np.linalg.norm(UV, 'fro')
         obj_fun = np.linalg.norm(A - UV, 'fro')
         norm_V_t = np.linalg.norm(V_t)
         
@@ -263,9 +289,10 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        _fancy_print(m_name, iteration_num, obj_fun, norm_UV, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
         
-        
+        #print(np.max(A - UV))
+        #time.sleep(10)
         
         last_iteration_values.pop(0)
         last_iteration_values.append(obj_fun)
@@ -274,8 +301,8 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         
     _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, c_name, m_name, t_name)
 
-def _fancy_print(name, iteration_num, obj_fun, norm_UV, norm_U, norm_V, exec_time):
-    print(name + f' | {iteration_num} | {exec_time:.3f}s | obj={obj_fun:.17f} | UV={norm_UV:.17f} | U={norm_U:.17f} | V={norm_V:.17f} |')
+def _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U, norm_V, exec_time):
+    print(f'{m_name} | {t_name} | {iteration_num} | {exec_time:.3f}s | obj={obj_fun:.17f} | U={norm_U:.17f} | V={norm_V:.17f} |')
 
 def _full_pc_info():
     # Operating System and Version

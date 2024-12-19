@@ -4,6 +4,7 @@ import numpy as np
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import plotly.express as px
+import matplotlib.pyplot as plt
 from pathlib import Path
 import pandas as pd
 import os
@@ -48,7 +49,6 @@ def save_matrix_as_jpg(matrix, output_path):
     image.save(output_path, 'JPEG')
     print(f"Image saved as {output_path}")
 
-'''
 # old function that uses pyplot
 def show_grayscale_images(matrices, cols=3, names=None):
     """
@@ -80,75 +80,66 @@ def show_grayscale_images(matrices, cols=3, names=None):
         axes[j].axis('off')
 
     plt.tight_layout()  # Adjust layout to prevent overlap
-    plt.show()'''
+    plt.show()
     
-#TODO: test this
-def show_grayscale_images(matrices, cols=3, names=None):
+def resize_image(image, new_height, new_width):
     """
-    Displays multiple NumPy matrices as grayscale images in a grid format using Plotly Express.
-    
-    :param matrices: List of NumPy matrices to display as images.
-    :param cols: Number of columns in the grid (default is 3).
-    :param names: List of titles for each image (default is None, and titles will be auto-generated).
-    """
-    if not names:
-        names = [f"Image {i + 1}" for i in range(len(matrices))]
-    
-    # Prepare a list of data dictionaries for Plotly
-    data = []
-    for idx, (matrix, name) in enumerate(zip(matrices, names)):
-        data.append({
-            "Image": name,
-            "z": matrix
-        })
-    
-    # Create a DataFrame for easier handling in Plotly
-    df = pd.DataFrame(data)
-    
-    # Create a subplot figure with the specified number of columns
-    fig = px.imshow(
-        [np.array(matrix, dtype=np.uint8) for matrix in matrices],
-        facet_col=0,
-        facet_col_wrap=cols,
-        labels=dict(color="Intensity"),
-        color_continuous_scale="gray"
-    )
-    
-    # Add titles to the subplots
-    for i, name in enumerate(names):
-        fig.layout.annotations[i]["text"] = name
-    
-    # Update layout to adjust spacing and aesthetics
-    fig.update_layout(
-        margin=dict(l=10, r=10, t=30, b=10),
-        height=(len(matrices) // cols + 1) * 200,
-        width=cols * 200,
-        coloraxis_showscale=False
-    )
-    
-    # Show the figure
-    fig.show()
+    Resize a grayscale image represented as a float64 matrix.
 
- 
- 
+    Parameters:
+        image (numpy.ndarray): Input matrix representing the grayscale image.
+        new_height (int): Desired height of the output image.
+        new_width (int): Desired width of the output image.
 
-def plot_dataframe(test_name, plot_time=False):
+    Returns:
+        numpy.ndarray: Resized image as a float64 matrix.
     """
-    Plot a DataFrame from a CSV file located in './data/test/' + test_name + '/data.csv'.
+    # Original dimensions
+    orig_height, orig_width = image.shape
+    
+    # Create an output matrix with the desired dimensions
+    resized_image = np.zeros((new_height, new_width), dtype=np.float64)
+    
+    # Calculate scaling factors
+    scale_x = orig_width / new_width
+    scale_y = orig_height / new_height
 
-    :param test_name: Name of the test (used to locate the CSV file).
-    :param plot_time: If True, create a subplot with time-related columns. Otherwise, plot objective function and norms.
-    :return: A Plotly figure.
-    """
+    for i in range(new_height):
+        for j in range(new_width):
+            # Map the pixel in the output image back to the input image
+            x = j * scale_x
+            y = i * scale_y
+            
+            # Find the coordinates of the surrounding pixels
+            x0 = int(np.floor(x))
+            x1 = min(x0 + 1, orig_width - 1)
+            y0 = int(np.floor(y))
+            y1 = min(y0 + 1, orig_height - 1)
+            
+            # Interpolation weights
+            wx = x - x0
+            wy = y - y0
+            
+            # Bilinear interpolation
+            top = (1 - wx) * image[y0, x0] + wx * image[y0, x1]
+            bottom = (1 - wx) * image[y1, x0] + wx * image[y1, x1]
+            resized_image[i, j] = (1 - wy) * top + wy * bottom
+    
+    return resized_image
+
+
+def plot_dataframe(c_name, m_name, t_name, plot_time=False):
+
     # Load the data
-    df = pd.read_csv(f'./data/test/{test_name}/data.csv')
-
+    df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
+    df['error'] = df['obj_fun'] - df['obj_fun'].min()
+    
     if plot_time:
         # Create a subplot with 2 rows and 1 column
         fig = make_subplots(rows=2, cols=1, subplot_titles=["Objective Function and Norms", "Timing Data"])
 
         # First plot: Objective function and norms
-        for col in ['obj_fun', 'U_norm', 'V_norm']:#, 'UV_norm']:
+        for col in ['obj_fun', 'U_norm', 'V_norm', 'error']:#, 'UV_norm']:
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -198,7 +189,7 @@ def plot_dataframe(test_name, plot_time=False):
         fig = go.Figure()
 
         # Add traces for objective function and norms
-        for col in ['obj_fun', 'U_norm', 'V_norm']:#, 'UV_norm']:
+        for col in ['obj_fun', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time',]:#, 'UV_norm']:
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -228,12 +219,14 @@ def plot_dataframe(test_name, plot_time=False):
 
         return fig
 
+'''
 def plot_global_df(x='m_n', y='k', filter={}):
     
     df = pd.read_csv('./data/global_data.csv')
     for f in filter:
         df = df[df[f] == filter[f]]
-        
+    print('Showing', len(df), 'data points')
+    
     df['m_n'] = df['m']*df['n']
     
     cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm'] # ,'UV_norm']
@@ -259,7 +252,8 @@ def plot_global_df(x='m_n', y='k', filter={}):
                     ),
                     visible = col == cols_to_show[0],
                     hoverinfo='text',
-                    text=[f"name={n}<br>m*n={mn}<br>k={k}<br>{col}={c}" for n, mn, k, c in zip(df['test_name'], df['m_n'], df['k'], df[col])])
+                    text=[f"name={n}<br>{x}={xval}<br>{y}={yval}<br>{col}={c}" 
+                          for n, xval, yval, c in zip(df['m_name'], df['m_n'], df['k'], df[col])])
                     
         )
             
@@ -291,16 +285,101 @@ def plot_global_df(x='m_n', y='k', filter={}):
             template="plotly",
             xaxis_title=x,
             yaxis_title=y,
-            #yaxis=dict(type='log'),
+            yaxis=dict(type='log'),
+        )
+
+
+    return fig'''
+   
+def plot_global_df(x='m_n', y='k', filter={}):
+        
+    df = pd.read_csv('./data/global_data.csv')
+    for f in filter:
+        df = df[df[f] == filter[f]]
+    print('Showing', len(df), 'data points')
+    
+    df['m_n'] = df['m']*df['n']    
+    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm'] # ,'UV_norm']
+    
+    # Initialize figure
+    fig = go.Figure()
+
+    # Add Traces
+    buttons = []
+    for col in cols_to_show:
+        ser = np.log(df[col] + 1)
+        df['size'] = ((ser - min(ser)) / (max(ser)-min(ser)))*50 + 5
+        df['x_mean'] = df.groupby([y])[col].transform('mean')
+        df['y_mean'] = df.groupby([x])[col].transform('mean')
+        df['xy_mean'] = df.groupby([x,y])[col].transform('mean')
+        
+        text = [f"m_name={mn}<br>t_name={tn}<br>{x}={xval}<br>{y}={yval}<br>{col}={c}<br>x_mean={xm}<br>y_mean={ym}<br>xy_mean={xym}" 
+                          for mn, tn, xval, yval, c, xm, ym, xym in zip(df['m_name'], df['t_name'], df[x], df[y], df[col], df['x_mean'], df['y_mean'], df['xy_mean'])]
+        quantiles_size = np.linspace(df['size'].min(), df['size'].max(), 5)
+        
+        quantiles_col = [((val - 5) / 50) * (max(ser) - min(ser)) + min(ser) for val in quantiles_size]
+        quantiles_col = [f'{np.exp(val) - 1:.2}' for val in quantiles_col]
+        
+        fig.add_trace(
+            go.Scatter(x=df[x],
+                    y=df[y],
+                    name=col,
+                    mode='markers',  # Mostra solo i punti
+                    marker=dict(
+                        size=df['size'],  # La dimensione dei punti dipende da z
+                        color=df['size'],  # Il colore dei punti dipende da z
+                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
+                        showscale=True, # Mostra la barra del colore
+                        colorbar=dict(
+                            tickvals=quantiles_size,  # Valori minimi e massimi
+                            ticktext=quantiles_col  # Testo dei tick
+                        ),
+                    ),
+                    visible = col == cols_to_show[0],
+                    hoverinfo='text',
+                    text=text)
+                    
+        )
+            
+        visib = [el == col for el in cols_to_show]
+        buttons.append(dict(label=col,
+                            method="update",
+                            args=[{"visible": visib},
+                                    {"annotations": []}]))
+
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                active=0,
+                buttons=buttons,
+                direction="down",
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0.125,
+                xanchor="left",
+                y=1.2,
+                yanchor="top"
+                ),
+        ])
+
+    fig.update_layout(
+            title='value shown:',
+            height=600,
+            width=1050,
+            template="plotly",
+            xaxis_title=x,
+            yaxis_title=y,
+            yaxis=dict(type='log'),
         )
 
 
     return fig
-
+ 
 def compute_global_stats_df():
     main_folder = Path("./data/test")
     global_df = {
-        'test_class':[], 'test_name':[], 'init_method':[], 
+        'c_name':[], 'm_name':[], 't_name':[], 
+        'init_method':[], 'epsilon':[],
         'pc_name':[], 'date':[],
         'm':[], 'n':[], 'k':[], 
         'iteration':[], 'exec_time':[], 
@@ -309,17 +388,22 @@ def compute_global_stats_df():
         'U_norm':[], 'V_norm':[]
     }
     
-    for subfolder in main_folder.iterdir():
-        if subfolder.is_dir(): 
+    # Iterate over all directories and subdirectories
+    for subfolder in main_folder.rglob('*'):
+        # Check if the path is a directory and is at the third level
+        if subfolder.is_dir() and len(subfolder.relative_to(main_folder).parts) == 3:
             dummy_df = pd.read_csv((subfolder / 'data.csv').absolute())
             with open(subfolder / 'input_values.json', 'r') as f:
                 input_values = json.loads(f.read())
             with open(subfolder / 'pc_info.json', 'r') as f:
                 pc_info = json.loads(f.read())
                 
-            global_df['test_class'].append(input_values['test_class'])
-            global_df['test_name'].append(input_values['test_name'])
+            global_df['c_name'].append(input_values['c_name'])
+            global_df['m_name'].append(input_values['m_name'])
+            global_df['t_name'].append(input_values['t_name'])
+
             global_df['init_method'].append(input_values['init_method'])
+            global_df['epsilon'].append(input_values['epsilon'])
             
             global_df['pc_name'].append(pc_info['pc_name'])
             global_df['date'].append(input_values['date'])
