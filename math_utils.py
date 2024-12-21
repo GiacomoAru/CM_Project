@@ -61,11 +61,17 @@ def backward_substitution(A, T):
     """
     n, k = A.shape
     X = np.zeros_like(A).astype('float64')
-
+    
+    eps = np.finfo(float).eps
+    threshold = eps * np.max(np.abs(A))
+    
     # for each column of X
     for i in range(k-1, -1, -1):
         # Solve for each row of X simultaneously
-        X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])
+        if T[i,i] <=  threshold:
+            X[:,i] = 0.0
+        else:
+            X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])
 
     return X
 
@@ -232,12 +238,15 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         # computing U
         start_time = time.time()
         V_r, householder_vectors = thin_qr_factorization(V_t)
+        print('V_r', V_r)
         qr_time = time.time() - start_time
         start_time = time.time()
         AQ = apply_householder_transformations(A, householder_vectors)
+        print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
         U_t = backward_substitution(AQ, np.transpose(V_r))
+        print('U_t', U_t)
         bw_time = time.time() - start_time
     
         
@@ -259,18 +268,21 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['iteration_id'].append(iteration_num)
         
         _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-
-
+        
+        input()
 
         # computing V
         start_time = time.time()
         U_r, householder_vectors = thin_qr_factorization(U_t)
+        print('U_r', U_r)
         qr_time = time.time() - start_time
         start_time = time.time()
         AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
+        print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
         V_t = backward_substitution(AQ, np.transpose(U_r))
+        print('V_t', V_t)
         bw_time = time.time() - start_time
 
 
@@ -294,7 +306,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
         
         #print(np.max(A - UV))
-        #time.sleep(10)
+        input()
         
         last_iteration_values.pop(0)
         last_iteration_values.append(obj_fun)
