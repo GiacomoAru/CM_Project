@@ -461,7 +461,7 @@ def keep_n_files(folder, n):
 
     print(f"{n} random files have been kept. The others have been deleted.")
     
-def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A'}):
+def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
     ret = {}
     for el in matrices:
         ret[el] = np.load(f'./data/test/{c_name}/{m_name}/{t_name}/{el}.npy')

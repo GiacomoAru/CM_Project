@@ -244,8 +244,9 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
     
     # iterate until convergence or until a maximum number of iterations is reached
     
-    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > threshold \
-        and max_iter > iteration_num:
+    while iteration_num < liv_len \
+        or ((np.abs(last_iteration_values[0] - last_iteration_values[-1])) > threshold \
+        and max_iter > iteration_num):
         
         # computing U
         start_time = time.time()
@@ -279,8 +280,8 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        # _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        #input()
+        #_fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        #time.sleep(1)
 
         # computing V
         start_time = time.time()
@@ -315,7 +316,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['iteration_id'].append(iteration_num)
         
         _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        #input()
+        #time.sleep(1)
         
         last_iteration_values.pop(0)
         last_iteration_values.append(obj_fun)
