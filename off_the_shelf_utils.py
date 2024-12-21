@@ -34,7 +34,7 @@ def thin_qr_factorization_OTS(A):
 
         v[0] = 1.0  # Set the implicit 1 for the Householder vector
 
-         # Normalize the vector
+        # Normalize the vector
         v /= np.linalg.norm(v)
 
         householder_vectors.append(v)
@@ -58,3 +58,21 @@ def thin_qr_factorization_OTS_2(A):
     return Q, R
     
 
+def backward_substitution_OTS(A, T):
+    """
+    Perform backward substitution to solve XT = A row by row using an off-the-shelf optimized library (np.linalg.solve_triangular).
+
+    Parameters:
+        A (numpy.ndarray): Input matrix of size n x k.
+        T (numpy.ndarray): Lower triangular matrix of size k x k.
+
+    Returns:
+        X (numpy.ndarray): Solution matrix of size n x k.
+    """
+    n, k = A.shape
+    X = np.zeros_like(A, dtype='float64')
+
+    # Use solve_triangular to solve the lower triangular system
+    X[:, :] = np.linalg.solve_triangular(T, A, lower=True, trans='T')
+
+    return X
