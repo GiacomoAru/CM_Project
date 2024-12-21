@@ -291,7 +291,7 @@ def plot_global_df(x='m_n', y='k', filter={}):
 
     return fig'''
    
-def plot_global_df(x='m_n', y='k', filter={}):
+def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
         
     df = pd.read_csv('./data/global_data.csv')
     for f in filter:
@@ -368,10 +368,18 @@ def plot_global_df(x='m_n', y='k', filter={}):
             width=1050,
             template="plotly",
             xaxis_title=x,
-            yaxis_title=y,
-            yaxis=dict(type='log'),
+            yaxis_title=y
         )
 
+    if logscale[0]:
+        fig.update_layout(
+            xaxis=dict(type='log')
+        )
+    if logscale[1]:
+        fig.update_layout(
+            yaxis=dict(type='log')
+        )
+            
 
     return fig
  
