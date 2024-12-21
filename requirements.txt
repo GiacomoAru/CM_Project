@@ -37,3 +37,4 @@ traitlets==5.14.3
 tzdata==2024.2
 wcwidth==0.2.13
 plotly==5.24.1
+scipy==1.14.1

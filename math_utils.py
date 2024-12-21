@@ -10,6 +10,8 @@ import uuid
 from datetime import datetime
 import json 
 
+from off_the_shelf_utils import *
+
 def thin_qr_factorization(A):
     """
     Perform the Thin QR factorization using Householder reflections.
@@ -370,3 +372,123 @@ def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, c_name, m_nam
         f.write(json.dumps(input_values))
     with open(directory + "/pc_info.json", 'w+') as f:
         f.write(json.dumps(_full_pc_info()))
+
+
+
+def test_start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
+          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None):
+    
+    if liv_len < 2:
+        liv_len = 2
+    if max_iter < 1:
+        max_iter = 1   
+    if epsilon < np.finfo(np.float64).eps:
+        epsilon = np.finfo(np.float64).eps
+        
+    # Get current date and time
+    input_values = {
+        'k':k,
+        'c_name': c_name,
+        'm_name': m_name,
+        't_name': t_name,
+        'init_method': init_method,
+        'data_folder': data_folder,
+        'max_iter': max_iter,
+        'liv_len': liv_len,
+        'epsilon': epsilon,
+        'seed':seed,
+        'date':datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    # stop handler
+    last_iteration_values = [x + 1 for x in range(liv_len)]
+    
+    start_time = qr_time = manip_time = bw_time = None
+    iteration_num = 0
+    data_dict = {'obj_fun':[], # 'UV_norm':[], 
+                 'U_norm':[], 'V_norm':[], 
+                 'qr_time':[], 'manip_time':[], 'bw_time':[], 
+                 'iteration_id':[]}
+    
+    V_0 = get_starting_matrix(A, k, init_method, seed)
+    V_t = V_0.copy()
+    norm_V_t = np.linalg.norm(V_t)
+    
+    # iterate until convergence or until a maximum number of iterations is reached
+    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
+        and max_iter > iteration_num:
+        
+        
+        # computing U
+        start_time = time.time()
+        V_r, householder_vectors = thin_qr_factorization_OTS(V_t)
+        qr_time = time.time() - start_time
+        start_time = time.time()
+        AQ = apply_householder_transformations(A, householder_vectors)
+        manip_time = time.time() - start_time
+        start_time = time.time()
+        U_t = backward_substitution(AQ, np.transpose(V_r))
+        bw_time = time.time() - start_time
+    
+        
+        # saving data of the iteration
+        UV = np.dot(U_t, np.transpose(V_t))
+        
+        # norm_UV = np.linalg.norm(UV, 'fro')
+        obj_fun = np.linalg.norm(A - UV, 'fro')
+        norm_U_t = np.linalg.norm(U_t)
+        
+        data_dict['obj_fun'].append(obj_fun)
+        # data_dict['UV_norm'].append(norm_UV)
+        data_dict['U_norm'].append(norm_U_t)
+        data_dict['V_norm'].append(norm_V_t)
+        
+        data_dict['qr_time'].append(qr_time)
+        data_dict['manip_time'].append(manip_time)
+        data_dict['bw_time'].append(bw_time)
+        data_dict['iteration_id'].append(iteration_num)
+        
+        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+
+
+
+        # computing V
+        start_time = time.time()
+        U_r, householder_vectors = thin_qr_factorization_OTS(U_t)
+        qr_time = time.time() - start_time
+        start_time = time.time()
+        AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
+        manip_time = time.time() - start_time
+        start_time = time.time()
+        V_t = backward_substitution(AQ, np.transpose(U_r))
+        bw_time = time.time() - start_time
+
+
+        # saving data of the iteration
+        UV = np.dot(U_t, np.transpose(V_t))
+        
+        # norm_UV = np.linalg.norm(UV, 'fro')
+        obj_fun = np.linalg.norm(A - UV, 'fro')
+        norm_V_t = np.linalg.norm(V_t)
+        
+        data_dict['obj_fun'].append(obj_fun)
+        # data_dict['UV_norm'].append(norm_UV)
+        data_dict['U_norm'].append(norm_U_t)
+        data_dict['V_norm'].append(norm_V_t)
+        
+        data_dict['qr_time'].append(qr_time)
+        data_dict['manip_time'].append(manip_time)
+        data_dict['bw_time'].append(bw_time)
+        data_dict['iteration_id'].append(iteration_num)
+        
+        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        
+        #print(np.max(A - UV))
+        #time.sleep(10)
+        
+        last_iteration_values.pop(0)
+        last_iteration_values.append(obj_fun)
+        iteration_num += 1
+        
+        
+    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, c_name, m_name, t_name)
