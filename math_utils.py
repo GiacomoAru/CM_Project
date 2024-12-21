@@ -279,7 +279,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['bw_time'].append(bw_time)
         data_dict['iteration_id'].append(iteration_num)
         
-        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
+        # _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
         #input()
 
         # computing V
