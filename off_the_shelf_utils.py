@@ -50,7 +50,7 @@ def thin_qr_factorization_OTS_2(A):
     A (ndarray): The m x n input matrix (m >= n).
     
     Returns:
-    Q (ndarray):
+    Q (ndarray): the thin  m x n orthogonal matrix
     R (ndarray): The n x n upper triangular matrix.
     """
     Q, R = np.linalg.qr(A, mode='reduced')
