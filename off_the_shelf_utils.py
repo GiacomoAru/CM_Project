@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import solve, solve_triangular
 from scipy.linalg.lapack import dgeqrf, dorgqr
 import pandas as pd
 from datetime import datetime
@@ -60,7 +61,7 @@ def thin_qr_factorization_OTS_2(A):
 
 def backward_substitution_OTS(A, T):
     """
-    Perform backward substitution to solve XT = A row by row using an off-the-shelf optimized library (np.linalg.solve_triangular).
+    Perform backward substitution to solve XT = A row by row using scipy.linalg.solve_triangular.
 
     Parameters:
         A (numpy.ndarray): Input matrix of size n x k.
@@ -69,10 +70,7 @@ def backward_substitution_OTS(A, T):
     Returns:
         X (numpy.ndarray): Solution matrix of size n x k.
     """
-    n, k = A.shape
-    X = np.zeros_like(A, dtype='float64')
 
-    # Use solve_triangular to solve the lower triangular system
-    X[:, :] = np.linalg.solve_triangular(T, A, lower=True, trans='T')
+    X = solve_triangular(T, A.T).T
 
     return X
