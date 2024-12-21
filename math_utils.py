@@ -12,7 +12,7 @@ import json
 
 from off_the_shelf_utils import *
 
-def thin_qr_factorization(A):
+def thin_qr_factorization(A, threshold=None):
     """
     Perform the Thin QR factorization using Householder reflections.
 
@@ -27,6 +27,10 @@ def thin_qr_factorization(A):
     A = A.copy()  # To avoid modifying the original matrix
     householder_vectors = []
 
+    if not threshold:
+        eps = np.finfo(float).eps
+        threshold = eps * np.max(np.abs(A))
+    
     for k in range(n):
         # Extract the column vector to be reflected
         x = A[k:m, k]
@@ -35,7 +39,10 @@ def thin_qr_factorization(A):
         e1 = np.zeros_like(x)
         e1[0] = np.linalg.norm(x) if x[0] >= 0 else -np.linalg.norm(x)
         vk = x + e1
-        vk /= np.linalg.norm(vk)
+        if np.max(np.abs(vk)) > threshold:  
+            vk /= np.linalg.norm(vk)
+        else:
+            vk = np.zeros_like(x)
 
         # Store the Householder vector
         householder_vectors.append(vk)
@@ -48,7 +55,7 @@ def thin_qr_factorization(A):
     
     return R, householder_vectors
 
-def backward_substitution(A, T):
+def backward_substitution(A, T, threshold=None):
     """
     Perform backward substitution to solve XT = A row by row.
 
@@ -62,13 +69,17 @@ def backward_substitution(A, T):
     n, k = A.shape
     X = np.zeros_like(A).astype('float64')
     
-    eps = np.finfo(float).eps
-    threshold = eps * np.max(np.abs(A))
+    if not threshold:
+        eps = np.finfo(float).eps
+        threshold = eps * np.max(np.abs(A))
     
     # for each column of X
     for i in range(k-1, -1, -1):
         # Solve for each row of X simultaneously
-        if T[i,i] <=  threshold:
+        if np.abs(T[i,i]) <= threshold and np.all(A[:,i] <= threshold):
+            X[:,i] = 0.0
+        elif np.abs(T[i,i]) <= threshold:
+            print('OMEGA GIGA ERROR AIAIAAI')
             X[:,i] = 0.0
         else:
             X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])
@@ -218,7 +229,8 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
     
     # stop handler
     last_iteration_values = [x + 1 for x in range(liv_len)]
-    
+    threshold = epsilon * np.max(np.abs(A))
+        
     start_time = qr_time = manip_time = bw_time = None
     iteration_num = 0
     data_dict = {'obj_fun':[], # 'UV_norm':[], 
@@ -231,22 +243,22 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
     norm_V_t = np.linalg.norm(V_t)
     
     # iterate until convergence or until a maximum number of iterations is reached
-    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
+    
+    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > threshold \
         and max_iter > iteration_num:
-        
         
         # computing U
         start_time = time.time()
-        V_r, householder_vectors = thin_qr_factorization(V_t)
-        print('V_r', V_r)
+        V_r, householder_vectors = thin_qr_factorization(V_t, threshold)
+        #print('V_r', V_r)
         qr_time = time.time() - start_time
         start_time = time.time()
         AQ = apply_householder_transformations(A, householder_vectors)
-        print('AQ', AQ)
+        #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        U_t = backward_substitution(AQ, np.transpose(V_r))
-        print('U_t', U_t)
+        U_t = backward_substitution(AQ, np.transpose(V_r), threshold)
+        #print('U_t', U_t)
         bw_time = time.time() - start_time
     
         
@@ -268,21 +280,20 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['iteration_id'].append(iteration_num)
         
         _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        
-        input()
+        #input()
 
         # computing V
         start_time = time.time()
-        U_r, householder_vectors = thin_qr_factorization(U_t)
-        print('U_r', U_r)
+        U_r, householder_vectors = thin_qr_factorization(U_t, threshold)
+        #print('U_r', U_r)
         qr_time = time.time() - start_time
         start_time = time.time()
         AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
-        print('AQ', AQ)
+        #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        V_t = backward_substitution(AQ, np.transpose(U_r))
-        print('V_t', V_t)
+        V_t = backward_substitution(AQ, np.transpose(U_r), threshold)
+        #print('V_t', V_t)
         bw_time = time.time() - start_time
 
 
@@ -304,9 +315,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
         data_dict['iteration_id'].append(iteration_num)
         
         _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        
-        #print(np.max(A - UV))
-        input()
+        #input()
         
         last_iteration_values.pop(0)
         last_iteration_values.append(obj_fun)
