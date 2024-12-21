@@ -13,7 +13,7 @@ def thin_qr_factorization_OTS(A):
     
     Returns:
     R (ndarray): The n x n upper triangular matrix.
-    V (ndarray): An m x n matrix where each column represents a Householder vector.
+    V (list): A list containing the Householder vectors.
     """
     m, n = A.shape
     
@@ -29,15 +29,14 @@ def thin_qr_factorization_OTS(A):
     # Extract Householder vectors into a list
     householder_vectors = []
     for k in range(n):
-        # Create a zero vector for the Householder vector
-        v = np.zeros(m)
-        
-        # The Householder vector starts at the diagonal (k-th row) and extends downwards
-        v[k:] = QR[k:, k]
-        
-        # Add the implicit '1' at the start of the Householder vector
-        v[k] = 1.0
-        
+
+        v = QR[k:, k]
+
+        v[0] = 1.0  # Set the implicit 1 for the Householder vector
+
+         # Normalize the vector
+        v /= np.linalg.norm(v)
+
         householder_vectors.append(v)
     
     return R, householder_vectors
