@@ -127,8 +127,7 @@ def resize_image(image, new_height, new_width):
     
     return resized_image
 
-
-def plot_dataframe(c_name, m_name, t_name, plot_time=False):
+def plot_dataframe(c_name, m_name, t_name, plot_time=False, logscale=(False, True)):
 
     # Load the data
     df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
@@ -172,7 +171,6 @@ def plot_dataframe(c_name, m_name, t_name, plot_time=False):
             width=1050,
             template="plotly",
             xaxis_title="Iteration",
-            yaxis=dict(type='log'),
             legend=dict(
                 orientation='h',
                 y=-0.2,
@@ -182,6 +180,15 @@ def plot_dataframe(c_name, m_name, t_name, plot_time=False):
             )
         )
 
+        if logscale[0]:
+            fig.update_layout(
+                xaxis=dict(type='log')
+            )
+        if logscale[1]:
+            fig.update_layout(
+                yaxis=dict(type='log')
+            )
+            
         return fig
 
     else:
@@ -216,6 +223,15 @@ def plot_dataframe(c_name, m_name, t_name, plot_time=False):
                 yanchor='top'
             )
         )
+        
+        if logscale[0]:
+            fig.update_layout(
+                xaxis=dict(type='log')
+            )
+        if logscale[1]:
+            fig.update_layout(
+                yaxis=dict(type='log')
+            )
 
         return fig
 
@@ -290,7 +306,7 @@ def plot_global_df(x='m_n', y='k', filter={}):
 
 
     return fig'''
-   
+
 def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
         
     df = pd.read_csv('./data/global_data.csv')
@@ -382,6 +398,117 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
             
 
     return fig
+
+
+def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
+        
+    old_df = pd.read_csv('./data/global_data.csv')
+   
+    for fun in filter:
+        old_df = old_df[filter[fun](old_df[fun])]
+            
+    print('Plotted', len(old_df), 'data points')
+    
+    old_df['m_n'] = old_df['m']*old_df['n']    
+    old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm']) 
+    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm','U-V_norm', 'k', 'm', 'n', 'm_n'] # ,'UV_norm']
+    
+    # Initialize figure
+    fig = go.Figure()
+
+    # Add Traces
+    buttons = []
+    for col in cols_to_show:
+        old_df['x_mean'] = old_df.groupby([y])[col].transform('mean')
+        old_df['y_mean'] = old_df.groupby([x])[col].transform('mean')
+        
+        df = old_df.groupby([x, y]).agg(
+            mean=(col, 'mean'),
+            var=(col, 'var'),
+            count=(col, 'count'),
+            x_mean=('x_mean', 'mean'),
+            y_mean=('y_mean', 'mean'),
+            c_c_name=('c_name', lambda series: series.mode().iloc[0]),
+            c_m_name=('m_name', lambda series: series.mode().iloc[0]),
+            c_t_name=('t_name', lambda series: series.mode().iloc[0])
+        ).reset_index()
+        
+        
+        if df['count'].min() == df['count'].max():
+            df['size'] = 10
+        else:
+            df['size'] = ((df['count'] - df['count'].min()) / (df['count'].max()-df['count'].min()))*25 + 25
+            
+        ser = np.log(df['mean'] + 1)
+        if max(ser) == min(ser):
+            df['color'] = 20
+        else:
+            df['color'] = ((ser - min(ser)) / (max(ser)-min(ser)))*50 + 5
+        
+        text = [f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{y}={yval}<br>{col}={mean}<br>var={var}<br>count={count}<br>x_mean={xm}<br>y_mean={ym}" 
+                          for cname, mname, tname, xval, yval, mean, var, count, xm, ym in zip(df['c_c_name'], df['c_m_name'], df['c_t_name'],
+                                                                        df[x], df[y], df['mean'], df['var'], df['count'],
+                                                                        df['x_mean'], df['y_mean'])]
+        
+        fig.add_trace(
+            go.Scatter(x=df[x],
+                    y=df[y],
+                    name='mean',
+                    mode='markers',  # Mostra solo i punti
+                    marker=dict(
+                        size=df['size'],  # La dimensione dei punti dipende da z
+                        color=df['color'],  # Il colore dei punti dipende da z
+                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
+                        #showscale=True, # Mostra la barra del colore
+                    ),
+                    visible = col == cols_to_show[0],
+                    hoverinfo='text',
+                    text=text)
+                    
+        )
+            
+        visib = [el == col for el in cols_to_show]
+        buttons.append(dict(label=col,
+                            method="update",
+                            args=[{"visible": visib},
+                                    {"annotations": []}]))
+
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                active=0,
+                buttons=buttons,
+                direction="down",
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=0.125,
+                xanchor="left",
+                y=1.2,
+                yanchor="top"
+                ),
+        ])
+
+    fig.update_layout(
+            title='value shown:',
+            height=600,
+            width=1050,
+            template="plotly",
+            xaxis_title=x,
+            yaxis_title=y
+        )
+
+    if logscale[0]:
+        fig.update_layout(
+            xaxis=dict(type='log')
+        )
+    if logscale[1]:
+        fig.update_layout(
+            yaxis=dict(type='log')
+        )
+            
+
+    return fig
+ 
  
 def compute_global_stats_df():
     main_folder = Path("./data/test")
@@ -418,9 +545,9 @@ def compute_global_stats_df():
             
             global_df['iteration'].append(dummy_df['iteration_id'].values[-1])
             
-            global_df['qr_time'].append(np.sum(dummy_df['qr_time'].values))
-            global_df['manip_time'].append(np.sum(dummy_df['manip_time'].values))
-            global_df['bw_time'].append(np.sum(dummy_df['bw_time'].values))
+            global_df['qr_time'].append(np.mean(dummy_df['qr_time'].values))
+            global_df['manip_time'].append(np.mean(dummy_df['manip_time'].values))
+            global_df['bw_time'].append(np.mean(dummy_df['bw_time'].values))
             global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
     
             global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
