@@ -1,63 +1,74 @@
 import numpy as np
+from scipy.linalg import solve, solve_triangular
+from scipy.linalg.lapack import dgeqrf, dorgqr
+import numpy as np
 import time
 import pandas as pd
 import os
-import sys
 import platform
 import psutil
-import socket
 import uuid
 from datetime import datetime
 import json 
 
-from off_the_shelf_utils import *
-
-def thin_qr_factorization(A, threshold=None):
+def thin_qr_factorization_OTS(A):
     """
-    Perform the Thin QR factorization using Householder reflections.
-
+    Perform a thin QR factorization using the off-the-shelf LAPACK routines.
+    
     Parameters:
-        A (numpy.ndarray): Input matrix of size m x n (m >= n).
-
+    A (ndarray): The m x n input matrix (m >= n).
+    
     Returns:
-        R (numpy.ndarray): Square upper triangular matrix of size n x n.
-        householder_vectors (list): List of n Householder vectors.
+    R (ndarray): The n x n upper triangular matrix.
+    V (list): A list containing the Householder vectors.
     """
     m, n = A.shape
-    A = A.copy()  # To avoid modifying the original matrix
-    householder_vectors = []
-
-    if not threshold:
-        eps = np.finfo(float).eps
-        threshold = eps * np.max(np.abs(A))
     
+    # Compute QR factorization using dgeqrf
+    # Returns R (in the upper triangle) and the Householder vectors (in the lower triangle)
+    # Step 1: Compute QR factorization using dgeqrf
+    result = dgeqrf(A, overwrite_a=False)
+    QR = result[0]
+    
+    # Extract R (upper triangular matrix)
+    R = np.triu(QR[:n, :n])
+    
+    # Extract Householder vectors into a list
+    householder_vectors = []
     for k in range(n):
-        # Extract the column vector to be reflected
-        x = A[k:m, k]
 
-        # Compute the Householder vector vk
-        e1 = np.zeros_like(x)
-        e1[0] = np.linalg.norm(x) if x[0] >= 0 else -np.linalg.norm(x)
-        vk = x + e1
-        if np.max(np.abs(vk)) > threshold:  
-            vk /= np.linalg.norm(vk)
-        else:
-            vk = np.zeros_like(x)
+        v = QR[k:, k]
 
-        # Store the Householder vector
-        householder_vectors.append(vk)
+        v[0] = 1.0  # Set the implicit 1 for the Householder vector
 
-        # Update the submatrix A[k:m, k:n]
-        A[k:m, k:n] -= 2 * np.outer(vk, vk @ A[k:m, k:n])
+        # Normalize the vector
+        v /= np.linalg.norm(v)
 
-    # Extract the upper triangular part as R (size n x n)
-    R = np.triu(A[:n, :n])
+        householder_vectors.append(v)
     
     return R, householder_vectors
 
-def backward_substitution(A, T, threshold=None):
+
+def thin_qr_factorization_OTS_2(A):
     """
-    Perform backward substitution to solve XT = A row by row.
+    Perform a thin QR factorization using the off-the-shelf numpy algorithm.
+    
+    Parameters:
+    A (ndarray): The m x n input matrix (m >= n).
+    
+    Returns:
+    Q (ndarray): the thin  m x n orthogonal matrix
+    R (ndarray): The n x n upper triangular matrix.
+    """
+    Q, R = np.linalg.qr(A, mode='reduced')
+    
+    return Q, R
+    
+
+def backward_substitution_OTS(A, T):
+
+    """
+    Perform backward substitution to solve XT = A row by row using scipy.linalg.solve_triangular.
 
     Parameters:
         A (numpy.ndarray): Input matrix of size n x k.
@@ -66,50 +77,11 @@ def backward_substitution(A, T, threshold=None):
     Returns:
         X (numpy.ndarray): Solution matrix of size n x k.
     """
-    n, k = A.shape
-    X = np.zeros_like(A).astype('float64')
-    
-    if not threshold:
-        eps = np.finfo(float).eps
-        threshold = eps * np.max(np.abs(A))
-    
-    # for each column of X
-    for i in range(k-1, -1, -1):
-        # Solve for each row of X simultaneously
-        if np.abs(T[i,i]) <= threshold and np.all(A[:,i] <= threshold):
-            X[:,i] = 0.0
-        elif np.abs(T[i,i]) <= threshold:
-            print('OMEGA GIGA ERROR AIAIAAI')
-            X[:,i] = 0.0
-        else:
-            X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])
+
+    X = solve_triangular(T, A.T).T
 
     return X
 
-def apply_householder_transformations(A, householder_vectors):
-    """
-    Applies a series of Householder transformations to the matrix A using the given list of Householder vectors.
-
-    Parameters:
-        A (numpy.ndarray): The input matrix of shape (m, n).
-        householder_vectors (list of numpy.ndarray): A list of Householder vectors. 
-            The i-th vector corresponds to the i-th Householder transformation.
-
-    Returns:
-        numpy.ndarray: The matrix A after applying the Householder transformations.
-    """
-    # Copy A to avoid modifying the original matrix
-    A = A.copy()
-    
-    for i, u in enumerate(householder_vectors):
-
-        # Extract the submatrix of interest
-        submatrix = A[:, i:]
-        
-        # Update the submatrix using the Householder transformation formula
-        submatrix -= 2.0 * np.outer(np.dot(submatrix, u), u)
-
-    return A[:,:len(householder_vectors)]
 
 def objective_function(A, U, V):
     """
@@ -136,381 +108,182 @@ def objective_function(A, U, V):
     
     return frobenius_norm
 
-def get_starting_matrix(A, k, method='sketching_g', seed=None):
+def create_diagonal_matrix_from_eigenvalues(eigenvalues):
     """
-    Create the starting matrix given the row and columns count, using the method given in input
+    Crea una matrice diagonale con gli autovalori specificati.
     
+    Args:
+        eigenvalues (list or np.ndarray): Lista o array di autovalori desiderati.
+    
+    Returns:
+        numpy.ndarray: Matrizzazione diagonale con gli autovalori specificati.
+    """
+    # Creare una matrice diagonale con gli autovalori
+    diagonal_matrix = np.diag(eigenvalues)
+    
+    return diagonal_matrix
+
+def create_symmetric_matrix_from_eigenvalues(eigenvalues):
+    """
+    Crea una matrice simmetrica con gli autovalori specificati, ma non diagonale.
+    
+    Args:
+        eigenvalues (list or np.ndarray): Lista di autovalori desiderati.
+    
+    Returns:
+        numpy.ndarray: Matrizzazione simmetrica con gli autovalori specificati, ma non diagonale.
+    """
+    # Numero di autovalori
+    size = len(eigenvalues)
+    
+    # Creiamo una matrice ortogonale Q (random)
+    Q, _ = np.linalg.qr(np.random.rand(size, size))  # Q è una matrice ortogonale
+    
+    # Creiamo la matrice diagonale con gli autovalori
+    Lambda = np.diag(eigenvalues)
+    
+    # Costruire la matrice simmetrica A = Q * Lambda * Q.T
+    A = Q @ Lambda @ Q.T
+    
+    return A
+
+
+ 
+def resize_image(image, new_height, new_width):
+    """
+    Resize a grayscale image represented as a float64 matrix.
+
     Parameters:
-        A (np.ndarray): The input matrix whose size determines the dimensions of the starting matrix
-        k (int): The number of columns in the matrix V
-        method (str): The method for initialization ('rand_u', 'rand_n', 'scaled_u', 'scaled_n', 'sketching_g', 'sketching_b')
-        seed (int, optional): The seed for random number generation (default is None, which means random seed)
+        image (numpy.ndarray): Input matrix representing the grayscale image.
+        new_height (int): Desired height of the output image.
+        new_width (int): Desired width of the output image.
 
     Returns:
-        V (np.ndarray): The matrix V (n x k) initialized with the selected method
+        numpy.ndarray: Resized image as a float64 matrix.
     """
+    # Original dimensions
+    orig_height, orig_width = image.shape
     
-    m, n = A.shape
+    # Create an output matrix with the desired dimensions
+    resized_image = np.zeros((new_height, new_width), dtype=np.float64)
     
-    # Create a random number generator with the given seed (or default if None)
-    rng = np.random.default_rng(seed)
-    
-    # uniform
-    if method == 'rand_u':
-        return rng.uniform(-1, 1, (n, k))
-    
-    # normal / gaussian distribution
-    if method == 'rand_n':
-        return rng.normal(0, 1, (n, k))
-    
-    # uniform but ||V|| = sqrt(||A||) -> ||V|| ~ ||U||
-    if method == 'scaled_u':
-        frob_A = np.linalg.norm(A, 'fro')
-        max_val = np.sqrt(3 * np.sqrt(frob_A)**2 / (n * k))
-        return rng.uniform(-max_val, max_val, (n, k))
-    
-    # normal but ||V|| = sqrt(||A||) -> ||V|| ~ ||U||
-    if method == 'scaled_n':
-        frob_A = np.linalg.norm(A, 'fro')  
-        gamma = np.sqrt(frob_A) / np.sqrt(n * k)
-        return rng.normal(0, gamma, (n, k))
-    
-    # Sketching with Gaussian distribution
-    if method == 'sketching_g':
-        
-        V = np.transpose(rng.normal(0, 1, (k, m)) @ A)
-        frob_A = np.linalg.norm(A, 'fro')
-        frob_V = np.linalg.norm(V, 'fro')
-        return (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))
-    
-    # Sketching with Bernoulli distribution (-1, 1)
-    if method == 'sketching_b':
-        
-        V = np.transpose(rng.choice([1, -1], size=(k, m)) @ A)
-        frob_A = np.linalg.norm(A, 'fro')
-        frob_V = np.linalg.norm(V, 'fro')
-        return (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))
-    
-    # Sketching with Gaussian distribution
-    if method == 'semi-orthogonal':
-        
-        R, h_v = thin_qr_factorization(rng.normal(0, 1, (n, k)))
-        return apply_householder_transformations(np.eye(n), h_v)
-    
-    else:
-        print('METHOD NOT FOUND, USING DEFAULT METHOD: rand_n')
-        return rng.normal(0, 1, (n, k))
+    # Calculate scaling factors
+    scale_x = orig_width / new_width
+    scale_y = orig_height / new_height
 
-
-def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None):
+    for i in range(new_height):
+        for j in range(new_width):
+            # Map the pixel in the output image back to the input image
+            x = j * scale_x
+            y = i * scale_y
+            
+            # Find the coordinates of the surrounding pixels
+            x0 = int(np.floor(x))
+            x1 = min(x0 + 1, orig_width - 1)
+            y0 = int(np.floor(y))
+            y1 = min(y0 + 1, orig_height - 1)
+            
+            # Interpolation weights
+            wx = x - x0
+            wy = y - y0
+            
+            # Bilinear interpolation
+            top = (1 - wx) * image[y0, x0] + wx * image[y0, x1]
+            bottom = (1 - wx) * image[y1, x0] + wx * image[y1, x1]
+            resized_image[i, j] = (1 - wy) * top + wy * bottom
     
-    if liv_len < 2:
-        liv_len = 2
-    if max_iter < 1:
-        max_iter = 1   
-    if epsilon < np.finfo(np.float64).eps:
-        epsilon = np.finfo(np.float64).eps
+    return resized_image
+
+    
+def keep_n_files(folder, n):
+    # Convert folder to a Path object
+    folder_path = Path(folder)
+    
+    # Get a list of all files in the folder (excluding directories)
+    files = [f for f in folder_path.iterdir() if f.is_file()]
+
+    # If the folder contains less than or equal to n files, no need to delete anything
+    if len(files) <= n:
+        print(f"The folder contains {len(files)} files, which is less than or equal to {n}. No files need to be removed.")
+        return
+
+    # Select n random files to keep
+    files_to_keep = random.sample(files, n)
+
+    # Remove all files except the ones selected
+    for file in files:
+        if file not in files_to_keep:
+            file.unlink()  # Delete the file
+            print(f"File removed: {file.name}")
+
+    print(f"{n} random files have been kept. The others have been deleted.")
+    
+def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
+    ret = {}
+    for el in matrices:
+        ret[el] = np.load(f'./data/test/{c_name}/{m_name}/{t_name}/{el}.npy')
+    return ret
+
+def load_global_df(filter={}):
+    df = pd.read_csv('./data/global_data.csv')
+   
+    for fun in filter:
+        df = df[filter[fun](df[fun])] 
         
-    # Get current date and time
-    input_values = {
-        'k':k,
-        'c_name': c_name,
-        'm_name': m_name,
-        't_name': t_name,
-        'init_method': init_method,
-        'data_folder': data_folder,
-        'max_iter': max_iter,
-        'liv_len': liv_len,
-        'epsilon': epsilon,
-        'seed':seed,
-        'date':datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    return df
+
+def compute_global_stats_df():
+    main_folder = Path("./data/test")
+    global_df = {
+        'c_name':[], 'm_name':[], 't_name':[], 
+        'init_method':[], 'epsilon':[],
+        'pc_name':[], 'date':[],
+        'm':[], 'n':[], 'k':[], 
+        'iteration':[], 'exec_time':[], 
+        'qr_time':[], 'manip_time':[], 'bw_time':[],
+        'obj_fun':[], # 'UV_norm':[],
+        'U_norm':[], 'V_norm':[]
     }
     
-    # stop handler
-    last_iteration_values = [x + 1 for x in range(liv_len)]
-    threshold = epsilon * np.max(np.abs(A))
-        
-    start_time = qr_time = manip_time = bw_time = None
-    iteration_num = 0
-    data_dict = {'obj_fun':[], # 'UV_norm':[], 
-                 'U_norm':[], 'V_norm':[], 
-                 'qr_time':[], 'manip_time':[], 'bw_time':[], 
-                 'iteration_id':[]}
+    # Iterate over all directories and subdirectories
+    for subfolder in main_folder.rglob('*'):
+        # Check if the path is a directory and is at the third level
+        if subfolder.is_dir() and len(subfolder.relative_to(main_folder).parts) == 3:
+            dummy_df = pd.read_csv((subfolder / 'data.csv').absolute())
+            with open(subfolder / 'input_values.json', 'r') as f:
+                input_values = json.loads(f.read())
+            with open(subfolder / 'pc_info.json', 'r') as f:
+                pc_info = json.loads(f.read())
+                
+            global_df['c_name'].append(input_values['c_name'])
+            global_df['m_name'].append(input_values['m_name'])
+            global_df['t_name'].append(input_values['t_name'])
+
+            global_df['init_method'].append(input_values['init_method'])
+            global_df['epsilon'].append(input_values['epsilon'])
+            
+            global_df['pc_name'].append(pc_info['pc_name'])
+            global_df['date'].append(input_values['date'])
+            
+            global_df['iteration'].append(dummy_df['iteration_id'].values[-1])
+            
+            global_df['qr_time'].append(np.mean(dummy_df['qr_time'].values))
+            global_df['manip_time'].append(np.mean(dummy_df['manip_time'].values))
+            global_df['bw_time'].append(np.mean(dummy_df['bw_time'].values))
+            global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
     
-    V_0 = get_starting_matrix(A, k, init_method, seed)
-    V_t = V_0.copy()
-    norm_V_t = np.linalg.norm(V_t)
+            global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
+            # global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
+            global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
+            global_df['V_norm'].append(dummy_df['V_norm'].values[-1])
+            
+            A = np.load((subfolder / 'A.npy').absolute())
+            U = np.load((subfolder / 'U.npy').absolute())
+            
+            global_df['m'].append(A.shape[0])
+            global_df['n'].append(A.shape[1])
+            global_df['k'].append(U.shape[1])
     
-    # iterate until convergence or until a maximum number of iterations is reached
-    
-    while iteration_num < liv_len \
-        or ((np.abs(last_iteration_values[0] - last_iteration_values[-1])) > threshold \
-        and max_iter > iteration_num):
-        
-        # computing U
-        start_time = time.time()
-        V_r, householder_vectors = thin_qr_factorization(V_t, threshold)
-        #print('V_r', V_r)
-        qr_time = time.time() - start_time
-        start_time = time.time()
-        AQ = apply_householder_transformations(A, householder_vectors)
-        #print('AQ', AQ)
-        manip_time = time.time() - start_time
-        start_time = time.time()
-        U_t = backward_substitution(AQ, np.transpose(V_r), threshold)
-        #print('U_t', U_t)
-        bw_time = time.time() - start_time
-    
-        
-        # saving data of the iteration
-        UV = np.dot(U_t, np.transpose(V_t))
-        
-        # norm_UV = np.linalg.norm(UV, 'fro')
-        obj_fun = np.linalg.norm(A - UV, 'fro')
-        norm_U_t = np.linalg.norm(U_t)
-        
-        data_dict['obj_fun'].append(obj_fun)
-        # data_dict['UV_norm'].append(norm_UV)
-        data_dict['U_norm'].append(norm_U_t)
-        data_dict['V_norm'].append(norm_V_t)
-        
-        data_dict['qr_time'].append(qr_time)
-        data_dict['manip_time'].append(manip_time)
-        data_dict['bw_time'].append(bw_time)
-        data_dict['iteration_id'].append(iteration_num)
-        
-        #_fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        #time.sleep(1)
+    global_df = pd.DataFrame(global_df)       
+    global_df.to_csv('./data/global_data.csv', index=False)
 
-        # computing V
-        start_time = time.time()
-        U_r, householder_vectors = thin_qr_factorization(U_t, threshold)
-        #print('U_r', U_r)
-        qr_time = time.time() - start_time
-        start_time = time.time()
-        AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
-        #print('AQ', AQ)
-        manip_time = time.time() - start_time
-        start_time = time.time()
-        V_t = backward_substitution(AQ, np.transpose(U_r), threshold)
-        #print('V_t', V_t)
-        bw_time = time.time() - start_time
-
-
-        # saving data of the iteration
-        UV = np.dot(U_t, np.transpose(V_t))
-        
-        # norm_UV = np.linalg.norm(UV, 'fro')
-        obj_fun = np.linalg.norm(A - UV, 'fro')
-        norm_V_t = np.linalg.norm(V_t)
-        
-        data_dict['obj_fun'].append(obj_fun)
-        # data_dict['UV_norm'].append(norm_UV)
-        data_dict['U_norm'].append(norm_U_t)
-        data_dict['V_norm'].append(norm_V_t)
-        
-        data_dict['qr_time'].append(qr_time)
-        data_dict['manip_time'].append(manip_time)
-        data_dict['bw_time'].append(bw_time)
-        data_dict['iteration_id'].append(iteration_num)
-        
-        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        #time.sleep(1)
-        
-        last_iteration_values.pop(0)
-        last_iteration_values.append(obj_fun)
-        iteration_num += 1
-        
-        
-    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, c_name, m_name, t_name)
-
-def _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U, norm_V, exec_time):
-    print(f'{m_name} | {t_name} | {iteration_num} | {exec_time:.3f}s | obj={obj_fun:.17f} | U={norm_U:.17f} | V={norm_V:.17f} |')
-
-def _full_pc_info():
-    # Operating System and Version
-    os_name = platform.system()
-    os_version = platform.version()
-    pc_name = platform.node()
-    architecture = platform.architecture()[0]
-    machine = platform.machine()
-    processor = platform.processor()
-
-    # CPU Details
-    physical_cores = psutil.cpu_count(logical=False)
-    logical_cores = psutil.cpu_count(logical=True)
-    cpu_frequency = psutil.cpu_freq().current if hasattr(psutil, 'cpu_freq') else 'N/A'
-    
-    # Memory
-    total_memory = psutil.virtual_memory().total / (1024 ** 3)  # in GB
-    available_memory = psutil.virtual_memory().available / (1024 ** 3)  # in GB
-
-    # Disk
-    total_disk = psutil.disk_usage('/').total / (1024 ** 3)  # in GB
-    free_disk = psutil.disk_usage('/').free / (1024 ** 3)  # in GB
-
-    # Unique Machine ID (MAC Address)
-    unique_id = str(uuid.getnode())  # MAC address, often used as unique identifier
-
-    # Storage System
-    storage_system = os.name  # 'posix' for Linux/Mac, 'nt' for Windows
-
-    # Creating a dictionary to hold all the information
-    data = {
-        'operating_system': f"{os_name} {os_version}",
-        'pc_name': pc_name,
-        'architecture': architecture,
-        'machine': machine,
-        'processor': processor,
-        'physical_cores': physical_cores,
-        'logical_cores': logical_cores,
-        'cpu_frequency_mhz': cpu_frequency,
-        'total_memory_gb': total_memory,
-        'available_memory_gb': available_memory,
-        'total_disk_space_gb': total_disk,
-        'free_disk_space_gb': free_disk,
-        'unique_machine_id_mac_address': unique_id,
-        'storage_system': storage_system
-    }
-    
-    return data
-
-def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, c_name, m_name, t_name):
-    
-    directory = data_folder + '/' + c_name + '/' + m_name + '/' + t_name
-        
-    os.makedirs(directory, exist_ok=True)
-    
-    df = pd.DataFrame(data_dict)
-    df.to_csv(directory + '/data.csv', index=False)
-    
-    np.save(directory + "/A.npy", A)
-    np.save(directory + "/V_0.npy", V_0)
-    np.save(directory + "/U.npy", U)
-    np.save(directory + "/V.npy", V)
-    
-    with open(directory + "/input_values.json", 'w+') as f:
-        f.write(json.dumps(input_values))
-    with open(directory + "/pc_info.json", 'w+') as f:
-        f.write(json.dumps(_full_pc_info()))
-
-
-
-def test_start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None):
-    
-    if liv_len < 2:
-        liv_len = 2
-    if max_iter < 1:
-        max_iter = 1   
-    if epsilon < np.finfo(np.float64).eps:
-        epsilon = np.finfo(np.float64).eps
-        
-    # Get current date and time
-    input_values = {
-        'k':k,
-        'c_name': c_name,
-        'm_name': m_name,
-        't_name': t_name,
-        'init_method': init_method,
-        'data_folder': data_folder,
-        'max_iter': max_iter,
-        'liv_len': liv_len,
-        'epsilon': epsilon,
-        'seed':seed,
-        'date':datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # stop handler
-    last_iteration_values = [x + 1 for x in range(liv_len)]
-    
-    start_time = qr_time = manip_time = bw_time = None
-    iteration_num = 0
-    data_dict = {'obj_fun':[], # 'UV_norm':[], 
-                 'U_norm':[], 'V_norm':[], 
-                 'qr_time':[], 'manip_time':[], 'bw_time':[], 
-                 'iteration_id':[]}
-    
-    V_0 = get_starting_matrix(A, k, init_method, seed)
-    V_t = V_0.copy()
-    norm_V_t = np.linalg.norm(V_t)
-    
-    # iterate until convergence or until a maximum number of iterations is reached
-    while (np.abs(last_iteration_values[0] - last_iteration_values[-1])) > epsilon * max(np.abs(last_iteration_values[0]), np.abs(last_iteration_values[-1])) \
-        and max_iter > iteration_num:
-        
-        
-        # computing U
-        start_time = time.time()
-        V_r, householder_vectors = thin_qr_factorization_OTS(V_t)
-        qr_time = time.time() - start_time
-        start_time = time.time()
-        AQ = apply_householder_transformations(A, householder_vectors)
-        manip_time = time.time() - start_time
-        start_time = time.time()
-        U_t = backward_substitution(AQ, np.transpose(V_r))
-        bw_time = time.time() - start_time
-    
-        
-        # saving data of the iteration
-        UV = np.dot(U_t, np.transpose(V_t))
-        
-        # norm_UV = np.linalg.norm(UV, 'fro')
-        obj_fun = np.linalg.norm(A - UV, 'fro')
-        norm_U_t = np.linalg.norm(U_t)
-        
-        data_dict['obj_fun'].append(obj_fun)
-        # data_dict['UV_norm'].append(norm_UV)
-        data_dict['U_norm'].append(norm_U_t)
-        data_dict['V_norm'].append(norm_V_t)
-        
-        data_dict['qr_time'].append(qr_time)
-        data_dict['manip_time'].append(manip_time)
-        data_dict['bw_time'].append(bw_time)
-        data_dict['iteration_id'].append(iteration_num)
-        
-        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-
-
-
-        # computing V
-        start_time = time.time()
-        U_r, householder_vectors = thin_qr_factorization_OTS(U_t)
-        qr_time = time.time() - start_time
-        start_time = time.time()
-        AQ = apply_householder_transformations(np.transpose(A), householder_vectors)
-        manip_time = time.time() - start_time
-        start_time = time.time()
-        V_t = backward_substitution(AQ, np.transpose(U_r))
-        bw_time = time.time() - start_time
-
-
-        # saving data of the iteration
-        UV = np.dot(U_t, np.transpose(V_t))
-        
-        # norm_UV = np.linalg.norm(UV, 'fro')
-        obj_fun = np.linalg.norm(A - UV, 'fro')
-        norm_V_t = np.linalg.norm(V_t)
-        
-        data_dict['obj_fun'].append(obj_fun)
-        # data_dict['UV_norm'].append(norm_UV)
-        data_dict['U_norm'].append(norm_U_t)
-        data_dict['V_norm'].append(norm_V_t)
-        
-        data_dict['qr_time'].append(qr_time)
-        data_dict['manip_time'].append(manip_time)
-        data_dict['bw_time'].append(bw_time)
-        data_dict['iteration_id'].append(iteration_num)
-        
-        _fancy_print(m_name, t_name, iteration_num, obj_fun, norm_U_t, norm_V_t, qr_time+manip_time+bw_time)
-        
-        #print(np.max(A - UV))
-        #time.sleep(10)
-        
-        last_iteration_values.pop(0)
-        last_iteration_values.append(obj_fun)
-        iteration_num += 1
-        
-        
-    _save_data(input_values, A, U_t, V_0, V_t, data_dict, data_folder, c_name, m_name, t_name)

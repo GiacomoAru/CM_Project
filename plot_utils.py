@@ -11,43 +11,6 @@ import os
 import random
 import json
 
-def load_image_as_grayscale_matrix(image_path):
-    """
-    Loads an image from the specified path, converts it to grayscale, 
-    and returns it as a 2D NumPy array.
-    
-    :param image_path: Path to the image file (JPG, PNG, etc.)
-    :return: 2D NumPy array representing the grayscale image
-    """
-    # Open the image file
-    image = Image.open(image_path)
-    
-    # Convert the image to grayscale
-    grayscale_image = image.convert('L')  # 'L' mode is for grayscale
-    
-    # Convert the grayscale image to a NumPy array
-    grayscale_matrix = np.array(grayscale_image)
-    
-    return grayscale_matrix.astype('float64')
-
-def save_matrix_as_jpg(matrix, output_path):
-    """
-    Saves a NumPy matrix (grayscale or color) as a JPG image.
-    
-    :param matrix: The 2D or 3D NumPy array representing the image.
-    :param output_path: Path where the JPG image will be saved.
-    """
-    # Convert the NumPy array back to a Pillow Image
-    if len(matrix.shape) == 2:  # Grayscale image (2D array)
-        image = Image.fromarray(matrix)
-    elif len(matrix.shape) == 3 and matrix.shape[2] == 3:  # RGB image (3D array)
-        image = Image.fromarray(matrix, 'RGB')
-    else:
-        raise ValueError("Unsupported matrix shape. Must be 2D or 3D with 3 channels.")
-    
-    # Save the image as a JPG file
-    image.save(output_path, 'JPEG')
-    print(f"Image saved as {output_path}")
 
 # old function that uses pyplot
 def show_grayscale_images(matrices, cols=3, names=None):
@@ -81,159 +44,110 @@ def show_grayscale_images(matrices, cols=3, names=None):
 
     plt.tight_layout()  # Adjust layout to prevent overlap
     plt.show()
-    
-def resize_image(image, new_height, new_width):
-    """
-    Resize a grayscale image represented as a float64 matrix.
 
-    Parameters:
-        image (numpy.ndarray): Input matrix representing the grayscale image.
-        new_height (int): Desired height of the output image.
-        new_width (int): Desired width of the output image.
 
-    Returns:
-        numpy.ndarray: Resized image as a float64 matrix.
-    """
-    # Original dimensions
-    orig_height, orig_width = image.shape
+def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True)):
+    fig = go.Figure()
     
-    # Create an output matrix with the desired dimensions
-    resized_image = np.zeros((new_height, new_width), dtype=np.float64)
+    # Ensure inputs are lists
+    if isinstance(c_names, str):
+        c_names = [c_names]
+    if isinstance(m_names, str):
+        m_names = [m_names]
+    if isinstance(t_names, str):
+        t_names = [t_names]
     
-    # Calculate scaling factors
-    scale_x = orig_width / new_width
-    scale_y = orig_height / new_height
+    if len(c_names) != len(m_names) or len(c_names) != len(t_names):
+            raise ValueError('The number of c_names, m_names and t_names must be the same')
+    else:
+        for c_name, m_name, t_name in zip(c_names, m_names, t_names):
+            # Load the data
+            df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
+            if col == 'error':
+                df['error'] = df['obj_fun'] - df['obj_fun'].min()
 
-    for i in range(new_height):
-        for j in range(new_width):
-            # Map the pixel in the output image back to the input image
-            x = j * scale_x
-            y = i * scale_y
-            
-            # Find the coordinates of the surrounding pixels
-            x0 = int(np.floor(x))
-            x1 = min(x0 + 1, orig_width - 1)
-            y0 = int(np.floor(y))
-            y1 = min(y0 + 1, orig_height - 1)
-            
-            # Interpolation weights
-            wx = x - x0
-            wy = y - y0
-            
-            # Bilinear interpolation
-            top = (1 - wx) * image[y0, x0] + wx * image[y0, x1]
-            bottom = (1 - wx) * image[y1, x0] + wx * image[y1, x1]
-            resized_image[i, j] = (1 - wy) * top + wy * bottom
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df[col],
+                    mode='lines',
+                    name=col,
+                    hoverinfo='text',
+                    text=[f"{c_name} - {m_name} - {t_name}<br>{col}: {value}<br>iteration_id: {iter}" 
+                            for value, iter in zip(df[col], df['iteration_id'])]
+                )
+            )
     
-    return resized_image
+    # Update layout for the figure
+    fig.update_layout(
+        title=f'Plotting {len(c_names)} lines: {col}',
+        height=500,
+        width=1050,
+        template="plotly",
+        xaxis_title="iteration",
+        yaxis_title=col,
+        showlegend=False
+    )
+    if logscale[0]:
+        fig.update_layout(
+            xaxis=dict(type='log')
+        )
+    if logscale[1]:
+        fig.update_layout(
+            yaxis=dict(type='log')
+        )
+    return fig
 
-def plot_dataframe(c_name, m_name, t_name, plot_time=False, logscale=(False, True)):
+def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time'], 
+                   logscale=(False, True)):
 
     # Load the data
     df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
     df['error'] = df['obj_fun'] - df['obj_fun'].min()
+
+    # Single plot: Objective function and norms, followed by timing data
+    fig = go.Figure()
+
+    # Add traces for objective function and norms
+    for col in cols:#, 'UV_norm']:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df[col],
+                mode='lines',
+                name=col,
+                hoverinfo='text',
+                text=[f"{col}: {value}<br>iteration_id: {iter}" for value, iter in zip(df[col], df['iteration_id'])]
+            )
+        )
+
+    # Update layout for the figure
+    fig.update_layout(
+        title=f'Plotting: {c_name}/{m_name}/{t_name}',
+        height=500,
+        width=1050,
+        template="plotly",
+        xaxis_title="iteration",
+        yaxis=dict(type='log'),
+        legend=dict(
+            orientation='h',
+            y=-0.2,
+            x=0.5,
+            xanchor='center',
+            yanchor='top'
+        )
+    )
     
-    if plot_time:
-        # Create a subplot with 2 rows and 1 column
-        fig = make_subplots(rows=2, cols=1, subplot_titles=["Objective Function and Norms", "Timing Data"])
-
-        # First plot: Objective function and norms
-        for col in ['obj_fun', 'U_norm', 'V_norm', 'error']:#, 'UV_norm']:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df[col],
-                    mode='lines',
-                    name=col,
-                    hoverinfo='text',
-                    text=[f"{col}: {value}<br>iteration_id: {iter}" for value, iter in zip(df[col], df['iteration_id'])]
-                ),
-                row=1, col=1
-            )
-
-        # Second plot: Timing data
-        for col in ['qr_time', 'manip_time', 'bw_time']:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df[col],
-                    mode='lines',
-                    name=col,
-                    hoverinfo='text',
-                    text=[f"{col}: {value}<br>iteration_id: {iter}" for value, iter in zip(df[col], df['iteration_id'])]
-                ),
-                row=2, col=1
-            )
-
-        # Update layout for the entire figure
+    if logscale[0]:
         fig.update_layout(
-            height=800,  # Adjust the height to fit the two plots
-            width=1050,
-            template="plotly",
-            xaxis_title="Iteration",
-            legend=dict(
-                orientation='h',
-                y=-0.2,
-                x=0.5,
-                xanchor='center',
-                yanchor='top'
-            )
+            xaxis=dict(type='log')
+        )
+    if logscale[1]:
+        fig.update_layout(
+            yaxis=dict(type='log')
         )
 
-        if logscale[0]:
-            fig.update_layout(
-                xaxis=dict(type='log')
-            )
-        if logscale[1]:
-            fig.update_layout(
-                yaxis=dict(type='log')
-            )
-            
-        return fig
-
-    else:
-        # Single plot: Objective function and norms, followed by timing data
-        fig = go.Figure()
-
-        # Add traces for objective function and norms
-        for col in ['obj_fun', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time',]:#, 'UV_norm']:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df[col],
-                    mode='lines',
-                    name=col,
-                    hoverinfo='text',
-                    text=[f"{col}: {value}<br>iteration_id: {iter}" for value, iter in zip(df[col], df['iteration_id'])]
-                )
-            )
-
-        # Update layout for the figure
-        fig.update_layout(
-            height=500,
-            width=1050,
-            template="plotly",
-            xaxis_title="Iteration",
-            yaxis=dict(type='log'),
-            legend=dict(
-                orientation='h',
-                y=-0.2,
-                x=0.5,
-                xanchor='center',
-                yanchor='top'
-            )
-        )
-        
-        if logscale[0]:
-            fig.update_layout(
-                xaxis=dict(type='log')
-            )
-        if logscale[1]:
-            fig.update_layout(
-                yaxis=dict(type='log')
-            )
-
-        return fig
+    return fig
 
 '''
 def plot_global_df(x='m_n', y='k', filter={}):
@@ -399,15 +313,12 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
 
     return fig
 
-
 def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
         
     old_df = pd.read_csv('./data/global_data.csv')
    
     for fun in filter:
         old_df = old_df[filter[fun](old_df[fun])]
-            
-    print('Plotted', len(old_df), 'data points')
     
     old_df['m_n'] = old_df['m']*old_df['n']    
     old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm']) 
@@ -419,31 +330,38 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
     # Add Traces
     buttons = []
     for col in cols_to_show:
-        old_df['x_mean'] = old_df.groupby([y])[col].transform('mean')
-        old_df['y_mean'] = old_df.groupby([x])[col].transform('mean')
         
+        #old_df['x_mean'] = old_df.groupby([y])[col].transform('mean')
+        #old_df['y_mean'] = old_df.groupby([x])[col].transform('mean')
         df = old_df.groupby([x, y]).agg(
             mean=(col, 'mean'),
             var=(col, 'var'),
             count=(col, 'count'),
-            x_mean=('x_mean', 'mean'),
-            y_mean=('y_mean', 'mean'),
+            #x_mean=('x_mean', 'mean'),
+            #y_mean=('y_mean', 'mean'),
             c_c_name=('c_name', lambda series: series.mode().iloc[0]),
             c_m_name=('m_name', lambda series: series.mode().iloc[0]),
             c_t_name=('t_name', lambda series: series.mode().iloc[0])
         ).reset_index()
-        
+        df['x_mean'] = df.groupby([y])['mean'].transform('mean')
+        df['y_mean'] = df.groupby([x])['mean'].transform('mean')
         
         if df['count'].min() == df['count'].max():
             df['size'] = 10
         else:
             df['size'] = ((df['count'] - df['count'].min()) / (df['count'].max()-df['count'].min()))*25 + 25
             
-        ser = np.log(df['mean'] + 1)
-        if max(ser) == min(ser):
-            df['color'] = 20
+        
+        if df['mean'].max() == df['mean'].min():
+            df['color'] = 1
+            tickvals = [1]
+            ticklabels = [f'{df['mean'].max():.2}']
         else:
-            df['color'] = ((ser - min(ser)) / (max(ser)-min(ser)))*50 + 5
+            ser = np.log(df['mean'] + 1)
+            df['color'] = ((ser - min(ser)) / (max(ser)-min(ser)))
+            tickvals = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+            ticklabels = [f'{val:.3}' for val in np.exp((np.array(tickvals) * (ser.max() - ser.min()) + ser.min())) - 1]
+        
         
         text = [f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{y}={yval}<br>{col}={mean}<br>var={var}<br>count={count}<br>x_mean={xm}<br>y_mean={ym}" 
                           for cname, mname, tname, xval, yval, mean, var, count, xm, ym in zip(df['c_c_name'], df['c_m_name'], df['c_t_name'],
@@ -459,13 +377,17 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
                         size=df['size'],  # La dimensione dei punti dipende da z
                         color=df['color'],  # Il colore dei punti dipende da z
                         colorscale='spectral',  # Scala cromatica (puoi cambiarla)
-                        #showscale=True, # Mostra la barra del colore
+                        showscale=True, # Mostra la barra del colore
+                        colorbar=dict(
+                            tickvals=tickvals,  # Ticks personalizzati
+                            ticktext=ticklabels,  # Etichette personalizzate
+                        )
                     ),
                     visible = col == cols_to_show[0],
                     hoverinfo='text',
                     text=text)
-                    
         )
+        
             
         visib = [el == col for el in cols_to_show]
         buttons.append(dict(label=col,
@@ -481,15 +403,16 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
                 direction="down",
                 pad={"r": 10, "t": 10},
                 showactive=True,
-                x=0.125,
-                xanchor="left",
-                y=1.2,
+                x=1.2,
+                xanchor="right",
+                y=1.15,
                 yanchor="top"
-                ),
-        ])
+            ),
+        ]
+    )
 
     fig.update_layout(
-            title='value shown:',
+            title=f'Global Dataframe ({len(old_df)} total tests)',
             height=600,
             width=1050,
             template="plotly",
@@ -509,87 +432,42 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
 
     return fig
  
- 
-def compute_global_stats_df():
-    main_folder = Path("./data/test")
-    global_df = {
-        'c_name':[], 'm_name':[], 't_name':[], 
-        'init_method':[], 'epsilon':[],
-        'pc_name':[], 'date':[],
-        'm':[], 'n':[], 'k':[], 
-        'iteration':[], 'exec_time':[], 
-        'qr_time':[], 'manip_time':[], 'bw_time':[],
-        'obj_fun':[], # 'UV_norm':[],
-        'U_norm':[], 'V_norm':[]
-    }
-    
-    # Iterate over all directories and subdirectories
-    for subfolder in main_folder.rglob('*'):
-        # Check if the path is a directory and is at the third level
-        if subfolder.is_dir() and len(subfolder.relative_to(main_folder).parts) == 3:
-            dummy_df = pd.read_csv((subfolder / 'data.csv').absolute())
-            with open(subfolder / 'input_values.json', 'r') as f:
-                input_values = json.loads(f.read())
-            with open(subfolder / 'pc_info.json', 'r') as f:
-                pc_info = json.loads(f.read())
-                
-            global_df['c_name'].append(input_values['c_name'])
-            global_df['m_name'].append(input_values['m_name'])
-            global_df['t_name'].append(input_values['t_name'])
 
-            global_df['init_method'].append(input_values['init_method'])
-            global_df['epsilon'].append(input_values['epsilon'])
-            
-            global_df['pc_name'].append(pc_info['pc_name'])
-            global_df['date'].append(input_values['date'])
-            
-            global_df['iteration'].append(dummy_df['iteration_id'].values[-1])
-            
-            global_df['qr_time'].append(np.mean(dummy_df['qr_time'].values))
-            global_df['manip_time'].append(np.mean(dummy_df['manip_time'].values))
-            global_df['bw_time'].append(np.mean(dummy_df['bw_time'].values))
-            global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
+def load_image_as_grayscale_matrix(image_path):
+    """
+    Loads an image from the specified path, converts it to grayscale, 
+    and returns it as a 2D NumPy array.
     
-            global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
-            # global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
-            global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
-            global_df['V_norm'].append(dummy_df['V_norm'].values[-1])
-            
-            A = np.load((subfolder / 'A.npy').absolute())
-            U = np.load((subfolder / 'U.npy').absolute())
-            
-            global_df['m'].append(A.shape[0])
-            global_df['n'].append(A.shape[1])
-            global_df['k'].append(U.shape[1])
+    :param image_path: Path to the image file (JPG, PNG, etc.)
+    :return: 2D NumPy array representing the grayscale image
+    """
+    # Open the image file
+    image = Image.open(image_path)
     
-    global_df = pd.DataFrame(global_df)       
-    global_df.to_csv('./data/global_data.csv', index=False)
+    # Convert the image to grayscale
+    grayscale_image = image.convert('L')  # 'L' mode is for grayscale
     
-def keep_n_files(folder, n):
-    # Convert folder to a Path object
-    folder_path = Path(folder)
+    # Convert the grayscale image to a NumPy array
+    grayscale_matrix = np.array(grayscale_image)
     
-    # Get a list of all files in the folder (excluding directories)
-    files = [f for f in folder_path.iterdir() if f.is_file()]
+    return grayscale_matrix.astype('float64')
 
-    # If the folder contains less than or equal to n files, no need to delete anything
-    if len(files) <= n:
-        print(f"The folder contains {len(files)} files, which is less than or equal to {n}. No files need to be removed.")
-        return
-
-    # Select n random files to keep
-    files_to_keep = random.sample(files, n)
-
-    # Remove all files except the ones selected
-    for file in files:
-        if file not in files_to_keep:
-            file.unlink()  # Delete the file
-            print(f"File removed: {file.name}")
-
-    print(f"{n} random files have been kept. The others have been deleted.")
+def save_matrix_as_jpg(matrix, output_path):
+    """
+    Saves a NumPy matrix (grayscale or color) as a JPG image.
     
-def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
-    ret = {}
-    for el in matrices:
-        ret[el] = np.load(f'./data/test/{c_name}/{m_name}/{t_name}/{el}.npy')
-    return ret
+    :param matrix: The 2D or 3D NumPy array representing the image.
+    :param output_path: Path where the JPG image will be saved.
+    """
+    # Convert the NumPy array back to a Pillow Image
+    if len(matrix.shape) == 2:  # Grayscale image (2D array)
+        image = Image.fromarray(matrix)
+    elif len(matrix.shape) == 3 and matrix.shape[2] == 3:  # RGB image (3D array)
+        image = Image.fromarray(matrix, 'RGB')
+    else:
+        raise ValueError("Unsupported matrix shape. Must be 2D or 3D with 3 channels.")
+    
+    # Save the image as a JPG file
+    image.save(output_path, 'JPEG')
+    print(f"Image saved as {output_path}")
+
