@@ -347,9 +347,10 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
         df['y_mean'] = df.groupby([x])['mean'].transform('mean')
         
         if df['count'].min() == df['count'].max():
-            df['size'] = 10
+            df['size'] = 15
         else:
-            df['size'] = ((df['count'] - df['count'].min()) / (df['count'].max()-df['count'].min()))*25 + 25
+            df['size'] = np.log(df['count'] - df['count'].min() + 1)*10 + 10
+            # ((df['count'] - df['count'].min()) / (df['count'].max()-df['count'].min()))*40 + 10
             
         
         if df['mean'].max() == df['mean'].min():
