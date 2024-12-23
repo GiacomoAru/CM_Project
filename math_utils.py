@@ -4,6 +4,8 @@ from scipy.linalg.lapack import dgeqrf, dorgqr
 import numpy as np
 import pandas as pd
 import json 
+from pathlib import Path
+import random
 
 def thin_qr_factorization_OTS(A):
     """
@@ -140,22 +142,21 @@ def create_symmetric_matrix_from_eigenvalues(eigenvalues):
     
     return A
 
-def upscale_bilinear(matrix, scale_factor):
+def upscale_bilinear(matrix, output_rows, output_cols):
     """
-    Upscales a 2D matrix using bilinear interpolation.
+    Upscales a 2D matrix using bilinear interpolation to the specified output dimensions.
     
     Parameters:
         matrix (2D numpy array): Input matrix to be upscaled.
-        scale_factor (int): The factor by which to upscale the matrix.
+        output_rows (int): The number of rows in the upscaled matrix.
+        output_cols (int): The number of columns in the upscaled matrix.
         
     Returns:
         2D numpy array: The upscaled matrix.
     """
-    if scale_factor <= 0:
-        raise ValueError("Scale factor must be a positive integer.")
-    
     input_rows, input_cols = matrix.shape
-    output_rows, output_cols = input_rows * scale_factor, input_cols * scale_factor
+    scale_factor_x = output_rows / input_rows
+    scale_factor_y = output_cols / input_cols
 
     # Create an output matrix of the desired size
     upscaled_matrix = np.zeros((output_rows, output_cols), dtype=float)
@@ -163,8 +164,8 @@ def upscale_bilinear(matrix, scale_factor):
     for i in range(output_rows):
         for j in range(output_cols):
             # Map the output pixel to the fractional input coordinates
-            x = i / scale_factor
-            y = j / scale_factor
+            x = i / scale_factor_x
+            y = j / scale_factor_y
             
             # Get the integer part and the fractional part
             x0 = int(np.floor(x))
@@ -186,22 +187,21 @@ def upscale_bilinear(matrix, scale_factor):
 
     return upscaled_matrix
 
-def upscale_nearest_neighbor(matrix, scale_factor):
+def upscale_nearest_neighbor(matrix, output_rows, output_cols):
     """
-    Upscales a 2D matrix using nearest neighbor interpolation.
+    Upscales a 2D matrix using nearest neighbor interpolation to the specified output dimensions.
     
     Parameters:
         matrix (2D numpy array): Input matrix to be upscaled.
-        scale_factor (int): The factor by which to upscale the matrix.
+        output_rows (int): The number of rows in the upscaled matrix.
+        output_cols (int): The number of columns in the upscaled matrix.
         
     Returns:
         2D numpy array: The upscaled matrix.
     """
-    if scale_factor <= 0:
-        raise ValueError("Scale factor must be a positive integer.")
-    
     input_rows, input_cols = matrix.shape
-    output_rows, output_cols = input_rows * scale_factor, input_cols * scale_factor
+    scale_factor_x = output_rows / input_rows
+    scale_factor_y = output_cols / input_cols
 
     # Create an output matrix of the desired size
     upscaled_matrix = np.zeros((output_rows, output_cols), dtype=matrix.dtype)
@@ -209,13 +209,146 @@ def upscale_nearest_neighbor(matrix, scale_factor):
     for i in range(output_rows):
         for j in range(output_cols):
             # Map the output pixel to the nearest input pixel
-            nearest_row = i // scale_factor
-            nearest_col = j // scale_factor
+            nearest_row = int(i / scale_factor_x)
+            nearest_col = int(j / scale_factor_y)
             upscaled_matrix[i, j] = matrix[nearest_row, nearest_col]
 
     return upscaled_matrix
-   
+
+def create_random_matrix_with_rank(seed, k, m, n):
+    """
+    Create a random matrix of rank exactly k using matrix multiplication.
     
+    Parameters:
+        seed (int): The seed for the random number generator.
+        k (int): The desired rank of the matrix.
+        m (int): The number of rows of the resulting matrix.
+        n (int): The number of columns of the resulting matrix.
+        
+    Returns:
+        numpy.ndarray: A random matrix of shape (m, n) with rank exactly k.
+    """
+    np.random.seed(seed)
+    
+    # Create two random matrices of appropriate sizes
+    U = np.random.randn(m, k)
+    V = np.random.randn(k, n)
+    
+    # Compute the product to get a matrix of rank k
+    A = np.dot(U, V)
+    
+    return A
+
+
+
+def create_random_diagonal_matrix(k, mean=0, std=1):
+    """
+    Create a k x k diagonal matrix with diagonal values drawn from a normal distribution.
+    
+    Parameters:
+        k (int): The size of the matrix (k x k).
+        mean (float): The mean of the normal distribution.
+        std (float): The standard deviation of the normal distribution.
+        
+    Returns:
+        numpy.ndarray: A k x k diagonal matrix with values drawn from a normal distribution.
+    """
+    # Draw k values from a normal distribution
+    diagonal_values = np.random.normal(mean, std, k)
+    
+    # Create a diagonal matrix with the drawn values
+    diagonal_matrix = np.diag(diagonal_values)
+    
+    return diagonal_matrix
+
+def create_random_orthogonal_matrix(k, mean=0, std=1):
+    """
+    Create a random k x k orthogonal matrix using the QR decomposition of a random matrix.
+    
+    Parameters:
+        k (int): The size of the orthogonal matrix (k x k).
+        
+    Returns:
+        numpy.ndarray: A k x k orthogonal matrix.
+    """
+    # Create a random k x k matrix with values drawn from a normal distribution
+    random_matrix = np.random.normal(mean, std, (k, k))
+    
+    # Perform QR decomposition to obtain an orthogonal matrix Q
+    Q, _ = np.linalg.qr(random_matrix)
+    
+    return Q
+
+def create_random_symmetric_matrix(k, mean=0, std=1):
+    """
+    Create a k x k symmetric matrix with values drawn from a Gaussian distribution.
+    
+    Parameters:
+        k (int): The size of the matrix (k x k).
+        mean (float): The mean of the Gaussian distribution.
+        std (float): The standard deviation of the Gaussian distribution.
+        
+    Returns:
+        numpy.ndarray: A k x k symmetric matrix with values drawn from a Gaussian distribution.
+    """
+    # Create a random k x k matrix with values drawn from a Gaussian distribution
+    random_matrix = np.random.normal(mean, std, (k, k))
+    
+    # Make the matrix symmetric
+    symmetric_matrix = (random_matrix + random_matrix.T) / 2
+    
+    return symmetric_matrix
+
+def create_random_upper_triangular_matrix(k, mean=0, std=1):
+    """
+    Create a k x k upper triangular matrix with values drawn from a normal distribution.
+    
+    Parameters:
+        k (int): The size of the matrix (k x k).
+        mean (float): The mean of the normal distribution.
+        std (float): The standard deviation of the normal distribution.
+        
+    Returns:
+        numpy.ndarray: A k x k upper triangular matrix with values drawn from a normal distribution.
+    """
+    # Create a random k x k matrix with values drawn from a normal distribution
+    random_matrix = np.random.normal(mean, std, (k, k))
+    
+    # Make the matrix upper triangular
+    upper_triangular_matrix = np.triu(random_matrix)
+    
+    return upper_triangular_matrix
+
+def create_random_matrix_with_eigenvalues(k, eigenvalues, mean=0, std=1):
+    """
+    Create a k x k random matrix with eigenvalues equal to the ones given in input.
+    
+    Parameters:
+        k (int): The size of the matrix (k x k).
+        eigenvalues (list or np.ndarray): The desired eigenvalues.
+        mean (float): The mean of the normal distribution for generating the random matrix.
+        std (float): The standard deviation of the normal distribution for generating the random matrix.
+        
+    Returns:
+        numpy.ndarray: A k x k random matrix with the specified eigenvalues.
+    """
+    # Create a random k x k matrix with values drawn from a normal distribution
+    random_matrix = np.random.normal(mean, std, (k, k))
+    
+    # Perform QR decomposition to obtain an orthogonal matrix Q
+    Q, _ = np.linalg.qr(random_matrix)
+    
+    # Create a diagonal matrix with the given eigenvalues
+    Lambda = np.diag(eigenvalues)
+    
+    # Construct the random matrix with the specified eigenvalues
+    random_matrix_with_eigenvalues = Q @ Lambda @ Q.T
+    
+    return random_matrix_with_eigenvalues
+
+
+
+
 def keep_n_files(folder, n):
     # Convert folder to a Path object
     folder_path = Path(folder)

@@ -176,7 +176,7 @@ def get_starting_matrix(A, k, method='sketching_g', seed=None):
 
 
 def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None):
+          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None, V_0=None):
     
     if liv_len < 2:
         liv_len = 2
@@ -211,7 +211,8 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
     
-    V_0 = get_starting_matrix(A, k, init_method, seed)
+    if not V_0:
+        V_0 = get_starting_matrix(A, k, init_method, seed)
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
     
@@ -498,5 +499,5 @@ def rerun(c_name, m_name, t_name, changes={}):
     del input_values['date']
     
     input_values['A'] = np.load('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/A.npy')
-    
+    input_values['V_0'] = np.load('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/V_0.npy')
     start(**input_values)
