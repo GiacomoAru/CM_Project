@@ -23,7 +23,4 @@ for norm in norm_mul:
         frob_V = np.linalg.norm(V, 'fro')
         V_0 = (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))*norm
     
-        start(A, k, 'norm', f'100x100_mul{norm}', f'{k}', epsilon=epsilon, V_0 = V_0)
-        continue
-    
-    continue
+        start(A, k, 'norm', f'100x100_n', f'{k}_Vmul{norm}', epsilon=epsilon, V_0 = V_0)

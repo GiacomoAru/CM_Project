@@ -175,6 +175,7 @@ def get_starting_matrix(A, k, method='sketching_g', seed=None):
         return rng.normal(0, 1, (n, k))
 
 
+
 def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
           max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None, V_0=None):
     
