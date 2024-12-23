@@ -21,6 +21,7 @@ ks = [
 ]
 
 
+noises = []
 A = add_gaussian_noise(np.eye(100), 0, 1e-07)
 for seed in seeds:
     for k in ks:

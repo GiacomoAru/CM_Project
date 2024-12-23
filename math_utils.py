@@ -2,13 +2,7 @@ import numpy as np
 from scipy.linalg import solve, solve_triangular
 from scipy.linalg.lapack import dgeqrf, dorgqr
 import numpy as np
-import time
 import pandas as pd
-import os
-import platform
-import psutil
-import uuid
-from datetime import datetime
 import json 
 
 def thin_qr_factorization_OTS(A):
@@ -220,22 +214,6 @@ def upscale_nearest_neighbor(matrix, scale_factor):
             upscaled_matrix[i, j] = matrix[nearest_row, nearest_col]
 
     return upscaled_matrix
-
-def add_gaussian_noise(matrix, mean=0, std_dev=1):
-    """
-    Adds Gaussian noise to a given matrix.
-    
-    Parameters:
-        matrix (2D numpy array): The input matrix to which noise will be added.
-        mean (float): Mean of the Gaussian noise.
-        std_dev (float): Standard deviation of the Gaussian noise.
-        
-    Returns:
-        2D numpy array: The matrix with Gaussian noise added.
-    """
-    noise = np.random.normal(mean, std_dev, matrix.shape)
-    noisy_matrix = matrix + noise
-    return noisy_matrix 
    
     
 def keep_n_files(folder, n):
