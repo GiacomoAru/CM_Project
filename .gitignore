@@ -402,6 +402,6 @@ FodyWeavers.xsd
 
 # all tests
 */test/*
-*/old_test/*
+*/*test/*
 
 cm/*
