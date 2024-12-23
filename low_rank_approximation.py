@@ -77,7 +77,7 @@ def backward_substitution(A, T, threshold=None):
         if np.abs(T[i,i]) <= threshold and np.all(A[:,i] <= threshold):
             X[:,i] = 0.0
         elif np.abs(T[i,i]) <= threshold:
-            print('OMEGA GIGA ERROR AIAIAAI')
+            # print('OMEGA GIGA ERROR AIAIAAI')
             X[:,i] = 0.0
         else:
             X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])
@@ -212,7 +212,7 @@ def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='sno
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
     
-    if not V_0:
+    if V_0 is None:
         V_0 = get_starting_matrix(A, k, init_method, seed)
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)

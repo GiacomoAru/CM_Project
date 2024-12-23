@@ -24,5 +24,8 @@ for iter in range(2):
     for k in ks:
         for rank in ranks:
             A = create_random_matrix_with_rank(None, rank, 100, 100)
-            start(A, k, 'low_rank', f'100x100_{rank}', f'{iter}_{k}', methods, epsilon=epsilon)
+            start(A, k, 'g_low_rank', f'100x100_{rank}', f'{iter}_{k}', methods, epsilon=epsilon)
+            
+            A = create_random_matrix_with_rank(None, rank, 250, 250)
+            start(A, k, 'g_low_rank', f'250x250_{rank}', f'{iter}_{k}', methods, epsilon=epsilon)
             continue

@@ -11,8 +11,8 @@ ks = [
     10,
     20
 ]
-norm_mul = [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]
 
+norm_mul = [10**x for x in range(16)]
 for norm in norm_mul:
     for k in ks:
         
@@ -23,4 +23,4 @@ for norm in norm_mul:
         frob_V = np.linalg.norm(V, 'fro')
         V_0 = (V/frob_V)*np.sqrt(frob_A*np.sqrt(k))*norm
     
-        start(A, k, 'norm', f'100x100_n', f'{k}_Vmul{norm}', epsilon=epsilon, V_0 = V_0)
+        start(A, k, 'g_norm', f'100x100_normal', f'{k}_Vmul{norm}', epsilon=epsilon, V_0 = V_0)
