@@ -14,11 +14,12 @@ ks = [
 
 
 A = np.eye(100)
-noises = [np.zeros_like(A)] + [np.random.normal(0, 10**-x, A.shape) for x in range(9)].reverse()
+noises = [np.zeros_like(A)] + [np.random.normal(0, 10**-x, A.shape) for x in range(11)]
+names = [''] + [f'_1e{-x:+02d}' for x in range(11)]
 
 for iter in range(2):
-    for i, noise in enumerate(noises):
+    for name, noise in zip(names, noises):
         for k in ks:
-            start(A + noise, k, 'identity', f'100x100_{10**-i}noise',  
+            start(A + noise, k, 'g_identity', f'100x100{name}',  
                     f'{iter}_{k}', method, epsilon=epsilon)  
             continue
