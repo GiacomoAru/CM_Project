@@ -48,7 +48,6 @@ def thin_qr_factorization_OTS(A):
     
     return R, householder_vectors
 
-
 def thin_qr_factorization_OTS_2(A):
     """
     Perform a thin QR factorization using the off-the-shelf numpy algorithm.
@@ -62,8 +61,7 @@ def thin_qr_factorization_OTS_2(A):
     """
     Q, R = np.linalg.qr(A, mode='reduced')
     
-    return Q, R
-    
+    return Q, R 
 
 def backward_substitution_OTS(A, T):
 
@@ -81,6 +79,7 @@ def backward_substitution_OTS(A, T):
     X = solve_triangular(T, A.T).T
 
     return X
+
 
 
 def objective_function(A, U, V):
@@ -149,51 +148,82 @@ def create_symmetric_matrix_from_eigenvalues(eigenvalues):
 
 
  
-def resize_image(image, new_height, new_width):
+def upscale_bilinear(matrix, scale_factor):
     """
-    Resize a grayscale image represented as a float64 matrix.
-
+    Upscales a 2D matrix using bilinear interpolation.
+    
     Parameters:
-        image (numpy.ndarray): Input matrix representing the grayscale image.
-        new_height (int): Desired height of the output image.
-        new_width (int): Desired width of the output image.
-
+        matrix (2D numpy array): Input matrix to be upscaled.
+        scale_factor (int): The factor by which to upscale the matrix.
+        
     Returns:
-        numpy.ndarray: Resized image as a float64 matrix.
+        2D numpy array: The upscaled matrix.
     """
-    # Original dimensions
-    orig_height, orig_width = image.shape
+    if scale_factor <= 0:
+        raise ValueError("Scale factor must be a positive integer.")
     
-    # Create an output matrix with the desired dimensions
-    resized_image = np.zeros((new_height, new_width), dtype=np.float64)
-    
-    # Calculate scaling factors
-    scale_x = orig_width / new_width
-    scale_y = orig_height / new_height
+    input_rows, input_cols = matrix.shape
+    output_rows, output_cols = input_rows * scale_factor, input_cols * scale_factor
 
-    for i in range(new_height):
-        for j in range(new_width):
-            # Map the pixel in the output image back to the input image
-            x = j * scale_x
-            y = i * scale_y
+    # Create an output matrix of the desired size
+    upscaled_matrix = np.zeros((output_rows, output_cols), dtype=float)
+
+    for i in range(output_rows):
+        for j in range(output_cols):
+            # Map the output pixel to the fractional input coordinates
+            x = i / scale_factor
+            y = j / scale_factor
             
-            # Find the coordinates of the surrounding pixels
+            # Get the integer part and the fractional part
             x0 = int(np.floor(x))
-            x1 = min(x0 + 1, orig_width - 1)
             y0 = int(np.floor(y))
-            y1 = min(y0 + 1, orig_height - 1)
-            
-            # Interpolation weights
-            wx = x - x0
-            wy = y - y0
-            
-            # Bilinear interpolation
-            top = (1 - wx) * image[y0, x0] + wx * image[y0, x1]
-            bottom = (1 - wx) * image[y1, x0] + wx * image[y1, x1]
-            resized_image[i, j] = (1 - wy) * top + wy * bottom
-    
-    return resized_image
+            x1 = min(x0 + 1, input_rows - 1)
+            y1 = min(y0 + 1, input_cols - 1)
 
+            # Compute the weights for interpolation
+            wx1, wx0 = x - x0, 1 - (x - x0)
+            wy1, wy0 = y - y0, 1 - (y - y0)
+
+            # Perform bilinear interpolation
+            upscaled_matrix[i, j] = (
+                matrix[x0, y0] * wx0 * wy0 +
+                matrix[x0, y1] * wx0 * wy1 +
+                matrix[x1, y0] * wx1 * wy0 +
+                matrix[x1, y1] * wx1 * wy1
+            )
+
+    return upscaled_matrix
+
+def upscale_nearest_neighbor(matrix, scale_factor):
+    """
+    Upscales a 2D matrix using nearest neighbor interpolation.
+    
+    Parameters:
+        matrix (2D numpy array): Input matrix to be upscaled.
+        scale_factor (int): The factor by which to upscale the matrix.
+        
+    Returns:
+        2D numpy array: The upscaled matrix.
+    """
+    if scale_factor <= 0:
+        raise ValueError("Scale factor must be a positive integer.")
+    
+    input_rows, input_cols = matrix.shape
+    output_rows, output_cols = input_rows * scale_factor, input_cols * scale_factor
+
+    # Create an output matrix of the desired size
+    upscaled_matrix = np.zeros((output_rows, output_cols), dtype=matrix.dtype)
+
+    for i in range(output_rows):
+        for j in range(output_cols):
+            # Map the output pixel to the nearest input pixel
+            nearest_row = i // scale_factor
+            nearest_col = j // scale_factor
+            upscaled_matrix[i, j] = matrix[nearest_row, nearest_col]
+
+    return upscaled_matrix
+   
+   
     
 def keep_n_files(folder, n):
     # Convert folder to a Path object
@@ -217,6 +247,8 @@ def keep_n_files(folder, n):
             print(f"File removed: {file.name}")
 
     print(f"{n} random files have been kept. The others have been deleted.")
+    
+    
     
 def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
     ret = {}
