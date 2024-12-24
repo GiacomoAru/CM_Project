@@ -313,89 +313,176 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
 
     return fig
 
-def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
-        
-    old_df = pd.read_csv('./data/global_data.csv')
-   
+def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, True), dataframe_path='./data/global_data.csv'):
+    """
+    Plots aggregated global dataframe with various columns to show.
+    
+    :param x: Column name for x-axis.
+    :param y: Column name for y-axis.
+    :param filter: Dictionary of filter functions to apply on the dataframe.
+    :param logscale: Tuple indicating whether to use log scale for x and y axes.
+    :return: Plotly figure object.
+    """
+    
+    # Load the global data
+    old_df = pd.read_csv(dataframe_path)
+    
+    # Apply filters
     for fun in filter:
         old_df = old_df[filter[fun](old_df[fun])]
+    for c in new_col:
+        old_df[c] = new_col[c](old_df)
     
-    old_df['m_n'] = old_df['m']*old_df['n']    
-    old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm']) 
-    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm','U-V_norm', 'k', 'm', 'n', 'm_n'] # ,'UV_norm']
+    # Create new columns
+    old_df['m_n'] = old_df['m'] * old_df['n']
+    old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm'])
+    
+    cols_to_show = []
+    
+    # Filter columns to show
+    for col in old_df.columns:
+        if col == x or col == y:
+            continue
+        else:
+            if not pd.api.types.is_numeric_dtype(old_df[col]):
+                categories = old_df[col].unique()
+                if len(categories) > len(px.colors.qualitative.Alphabet):
+                    print(col, 'has too many categories')
+                    continue
+                colormap = {category: px.colors.qualitative.Alphabet[i] for i, category in enumerate(categories)}
+                
+                df = old_df.groupby([x, y]).agg(
+                    c_col=(col, lambda series: series.mode().iloc[0])
+                )
+                
+                if df['c_col'].nunique() == 1:
+                    print(col, 'has only one value: ', df['c_col'].iloc[0])
+                    continue
+                else:
+                    cols_to_show.append(col)
+            else:
+                df = old_df.groupby([x, y]).agg(
+                    mean=(col, 'mean')
+                )
+                
+                if df['mean'].max() == df['mean'].min():
+                    print(col, 'has only one value:', df['mean'].iloc[0])
+                    continue
+                else:
+                    cols_to_show.append(col)
     
     # Initialize figure
     fig = go.Figure()
-
+    
     # Add Traces
     buttons = []
     for col in cols_to_show:
-        
-        #old_df['x_mean'] = old_df.groupby([y])[col].transform('mean')
-        #old_df['y_mean'] = old_df.groupby([x])[col].transform('mean')
-        df = old_df.groupby([x, y]).agg(
-            mean=(col, 'mean'),
-            var=(col, 'var'),
-            count=(col, 'count'),
-            #x_mean=('x_mean', 'mean'),
-            #y_mean=('y_mean', 'mean'),
-            c_c_name=('c_name', lambda series: series.mode().iloc[0]),
-            c_m_name=('m_name', lambda series: series.mode().iloc[0]),
-            c_t_name=('t_name', lambda series: series.mode().iloc[0])
-        ).reset_index()
-        df['x_mean'] = df.groupby([y])['mean'].transform('mean')
-        df['y_mean'] = df.groupby([x])['mean'].transform('mean')
-        
-        if df['count'].min() == df['count'].max():
-            df['size'] = 15
-        else:
-            df['size'] = np.log(df['count'] - df['count'].min() + 1)*10 + 10
-            # ((df['count'] - df['count'].min()) / (df['count'].max()-df['count'].min()))*40 + 10
+        # Category column
+        if not pd.api.types.is_numeric_dtype(old_df[col]):
+            categories = old_df[col].unique()
+            if len(categories) > len(px.colors.qualitative.Alphabet):
+                print(col, 'has too many categories')
+                continue
+            colormap = px.colors.qualitative.Alphabet[:len(categories)]
+            color_map = {category: colormap[i] for i, category in enumerate(categories)}
             
+            df = old_df.groupby([x, y]).agg(
+                c_col=(col, lambda series: series.mode().iloc[0]),
+                diff_col=(col, lambda series: series.nunique()),
+                count=(col, 'count'),
+                c_c_name=('c_name', lambda series: series.mode().iloc[0]),
+                c_m_name=('m_name', lambda series: series.mode().iloc[0]),
+                c_t_name=('t_name', lambda series: series.mode().iloc[0])
+            ).reset_index()
+            
+            if df['count'].min() == df['count'].max():
+                df['size'] = 15
+            else:
+                df['size'] = np.log(df['count'] - df['count'].min() + 1) * 10 + 10
+            
+            df['color'] = df['c_col'].map(color_map)
+            
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={c_col}<br>count={count}<br>{x}={xval}<br>{y}={yval}"
+                for cname, mname, tname, xval, yval, c_col, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[y], df['c_col'], df['count'])
+            ]
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=df[x],
+                    y=df[y],
+                    name=col,
+                    mode='markers',
+                    marker=dict(
+                        size=df['size'],
+                        color=df['color']
+                    ),
+                    visible=col == cols_to_show[0],
+                    hoverinfo='text',
+                    text=text
+                )
+            )
+            
+            visib = [el == col for el in cols_to_show]
+            buttons.append(dict(label=col, method="update", args=[{"visible": visib}, {"annotations": []}]))
         
-        if df['mean'].max() == df['mean'].min():
-            df['color'] = 1
-            tickvals = [1]
-            ticklabels = [f'{df['mean'].max():.2}']
+        # Numerical column
         else:
+            df = old_df.groupby([x, y]).agg(
+                mean=(col, 'mean'),
+                var=(col, 'var'),
+                count=(col, 'count'),
+                c_c_name=('c_name', lambda series: series.mode().iloc[0]),
+                c_m_name=('m_name', lambda series: series.mode().iloc[0]),
+                c_t_name=('t_name', lambda series: series.mode().iloc[0])
+            ).reset_index()
+            
+            df['x_mean'] = df.groupby([y])['mean'].transform('mean')
+            df['y_mean'] = df.groupby([x])['mean'].transform('mean')
+            
+            if df['count'].min() == df['count'].max():
+                df['size'] = 15
+            else:
+                df['size'] = np.log(df['count'] - df['count'].min() + 1) * 10 + 10
+            
             ser = np.log(df['mean'] + 1)
-            df['color'] = ((ser - min(ser)) / (max(ser)-min(ser)))
+            df['color'] = ((ser - min(ser)) / (max(ser) - min(ser)))
             tickvals = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
             ticklabels = [f'{val:.3}' for val in np.exp((np.array(tickvals) * (ser.max() - ser.min()) + ser.min())) - 1]
-        
-        
-        text = [f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{y}={yval}<br>{col}={mean}<br>var={var}<br>count={count}<br>x_mean={xm}<br>y_mean={ym}" 
-                          for cname, mname, tname, xval, yval, mean, var, count, xm, ym in zip(df['c_c_name'], df['c_m_name'], df['c_t_name'],
-                                                                        df[x], df[y], df['mean'], df['var'], df['count'],
-                                                                        df['x_mean'], df['y_mean'])]
-        
-        fig.add_trace(
-            go.Scatter(x=df[x],
+            
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}<br>{y}={yval}<br>x_mean={xm}<br>y_mean={ym}"
+                for cname, mname, tname, xval, yval, mean, var, count, xm, ym in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[y], df['mean'], df['var'], df['count'], df['x_mean'], df['y_mean'])
+            ]
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=df[x],
                     y=df[y],
-                    name='mean',
-                    mode='markers',  # Mostra solo i punti
+                    name=col,
+                    mode='markers',
                     marker=dict(
-                        size=df['size'],  # La dimensione dei punti dipende da z
-                        color=df['color'],  # Il colore dei punti dipende da z
-                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
-                        showscale=True, # Mostra la barra del colore
+                        size=df['size'],
+                        color=df['color'],
+                        colorscale='spectral',
+                        showscale=True,
                         colorbar=dict(
-                            tickvals=tickvals,  # Ticks personalizzati
-                            ticktext=ticklabels,  # Etichette personalizzate
+                            tickvals=tickvals,
+                            ticktext=ticklabels
                         )
                     ),
-                    visible = col == cols_to_show[0],
+                    visible=col == cols_to_show[0],
                     hoverinfo='text',
-                    text=text)
-        )
-        
+                    text=text
+                )
+            )
             
-        visib = [el == col for el in cols_to_show]
-        buttons.append(dict(label=col,
-                            method="update",
-                            args=[{"visible": visib},
-                                    {"annotations": []}]))
-
+            visib = [el == col for el in cols_to_show]
+            buttons.append(dict(label=col, method="update", args=[{"visible": visib}, {"annotations": []}]))
+    
+    # Update layout with dropdown menu
     fig.update_layout(
         updatemenus=[
             dict(
@@ -411,28 +498,24 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
             ),
         ]
     )
-
+    
+    # Update layout with titles and dimensions
     fig.update_layout(
-            title=f'Global Dataframe ({len(old_df)} total tests)',
-            height=600,
-            width=1050,
-            template="plotly",
-            xaxis_title=x,
-            yaxis_title=y
-        )
-
+        title=f'Global Dataframe ({len(old_df)} total tests)',
+        height=600,
+        width=1050,
+        template="plotly",
+        xaxis_title=x,
+        yaxis_title=y
+    )
+    
+    # Apply log scale if specified
     if logscale[0]:
-        fig.update_layout(
-            xaxis=dict(type='log')
-        )
+        fig.update_layout(xaxis=dict(type='log'))
     if logscale[1]:
-        fig.update_layout(
-            yaxis=dict(type='log')
-        )
-            
-
+        fig.update_layout(yaxis=dict(type='log'))
+    
     return fig
- 
 
 def load_image_as_grayscale_matrix(image_path):
     """

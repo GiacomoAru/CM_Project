@@ -4,28 +4,15 @@ from low_rank_approximation import *
 
 methods = 'sketching_b'
 epsilon = 1e-15
-ks = [
-    1,
-    5,
-    20,
-    50
-]
-ranks = [
-    1,
-    2,
-    5,
-    10,
-    20,
-    50,
-    75
-]
+# ks = [1,5,20,50]
+# ranks = [1,2,5,10,20,50,75]
+ranks = [x + 20 for x in range(11)]
+ks = [x + 20 for x in range(11)]
 
 for iter in range(2):
     for k in ks:
         for rank in ranks:
+            
             A = create_random_matrix_with_rank(None, rank, 100, 100)
             start(A, k, 'g_low_rank', f'100x100_{rank}', f'{iter}_{k}', methods, epsilon=epsilon)
-            
-            A = create_random_matrix_with_rank(None, rank, 250, 250)
-            start(A, k, 'g_low_rank', f'250x250_{rank}', f'{iter}_{k}', methods, epsilon=epsilon)
             continue

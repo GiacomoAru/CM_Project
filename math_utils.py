@@ -511,8 +511,9 @@ def load_global_df(filter={}):
         
     return df
 
-def compute_global_stats_df():
-    main_folder = Path("./data/test")
+
+def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global_data.csv'):
+    main_folder = Path(test_dir)
     global_df = {
         'c_name':[], 'm_name':[], 't_name':[], 
         'init_method':[], 'epsilon':[],
@@ -564,5 +565,5 @@ def compute_global_stats_df():
             global_df['k'].append(U.shape[1])
     
     global_df = pd.DataFrame(global_df)       
-    global_df.to_csv('./data/global_data.csv', index=False)
+    global_df.to_csv(save_path, index=False)
 
