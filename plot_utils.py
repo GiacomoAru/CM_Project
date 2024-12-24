@@ -327,6 +327,9 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
     # Load the global data
     old_df = pd.read_csv(dataframe_path)
     
+    base_size = 10
+    step_size = 5
+    
     # Apply filters
     for fun in filter:
         old_df = old_df[filter[fun](old_df[fun])]
@@ -338,7 +341,6 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
     old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm'])
     
     cols_to_show = []
-    
     # Filter columns to show
     for col in old_df.columns:
         if col == x or col == y:
@@ -398,7 +400,7 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
             if df['count'].min() == df['count'].max():
                 df['size'] = 15
             else:
-                df['size'] = np.log(df['count'] - df['count'].min() + 1) * 10 + 10
+                df['size'] = np.log(df['count'] - df['count'].min() + 1) * step_size + base_size
             
             df['color'] = df['c_col'].map(color_map)
             
@@ -444,7 +446,7 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
             if df['count'].min() == df['count'].max():
                 df['size'] = 15
             else:
-                df['size'] = np.log(df['count'] - df['count'].min() + 1) * 10 + 10
+                df['size'] = np.log(df['count'] - df['count'].min() + 1) * step_size + base_size
             
             ser = np.log(df['mean'] + 1)
             df['color'] = ((ser - min(ser)) / (max(ser) - min(ser)))

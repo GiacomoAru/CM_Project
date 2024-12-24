@@ -372,10 +372,10 @@ def keep_n_files(folder, n):
     
     
     
-def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
+def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}, test_dir='./data/test'):
     ret = {}
     for el in matrices:
-        ret[el] = np.load(f'./data/test/{c_name}/{m_name}/{t_name}/{el}.npy')
+        ret[el] = np.load(f'{test_dir}/{c_name}/{m_name}/{t_name}/{el}.npy')
     return ret
 
 def load_global_df(dataframe_path = './data/global_data.csv', filter={}):
