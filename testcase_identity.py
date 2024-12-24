@@ -15,7 +15,7 @@ ks = [
 
 A = np.eye(100)
 noises = [np.zeros_like(A)] + [np.random.normal(0, 10**-x, A.shape) for x in range(11)]
-names = [''] + [f'_1e{-x:+02d}' for x in range(11)]
+names = ['00'] #+ [f'_1e{-x:+02d}' for x in range(11)]
 
 for iter in range(2):
     for name, noise in zip(names, noises):
