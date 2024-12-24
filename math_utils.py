@@ -378,14 +378,13 @@ def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}):
         ret[el] = np.load(f'./data/test/{c_name}/{m_name}/{t_name}/{el}.npy')
     return ret
 
-def load_global_df(filter={}):
-    df = pd.read_csv('./data/global_data.csv')
+def load_global_df(dataframe_path = './data/global_data.csv', filter={}):
+    df = pd.read_csv(dataframe_path)
    
     for fun in filter:
         df = df[filter[fun](df[fun])] 
         
     return df
-
 
 def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global_data.csv'):
     main_folder = Path(test_dir)
