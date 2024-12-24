@@ -336,7 +336,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
     
-    if not V_0:
+    if V_0 is None:
         V_0 = get_starting_matrix(A, k, init_method, seed)
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
@@ -460,7 +460,7 @@ def start_OTS_No_Householder(A, k, c_name='class', m_name='matrix', t_name='test
                  'qr_time':[], 'manip_time':[], 'bw_time':[], 
                  'iteration_id':[]}
     
-    if not V_0:
+    if V_0 is None:
         V_0 = get_starting_matrix(A, k, init_method, seed)
     V_t = V_0.copy()
     norm_V_t = np.linalg.norm(V_t)
