@@ -349,7 +349,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
         
         # computing U
         start_time = time.time()
-        V_r, householder_vectors = thin_qr_factorization_OTS(V_t, threshold)
+        V_r, householder_vectors = thin_qr_factorization_OTS(V_t)
         #print('V_r', V_r)
         qr_time = time.time() - start_time
         start_time = time.time()
@@ -357,7 +357,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
         #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        U_t = backward_substitution_OTS(AQ, np.transpose(V_r), threshold)
+        U_t = backward_substitution_OTS(AQ, np.transpose(V_r))
         #print('U_t', U_t)
         bw_time = time.time() - start_time
     
@@ -384,7 +384,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
 
         # computing V
         start_time = time.time()
-        U_r, householder_vectors = thin_qr_factorization_OTS(U_t, threshold)
+        U_r, householder_vectors = thin_qr_factorization_OTS(U_t)
         #print('U_r', U_r)
         qr_time = time.time() - start_time
         start_time = time.time()
@@ -392,7 +392,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
         #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        V_t = backward_substitution_OTS(AQ, np.transpose(U_r), threshold)
+        V_t = backward_substitution_OTS(AQ, np.transpose(U_r))
         #print('V_t', V_t)
         bw_time = time.time() - start_time
 
@@ -473,7 +473,7 @@ def start_OTS_No_Householder(A, k, c_name='class', m_name='matrix', t_name='test
         
         # computing U
         start_time = time.time()
-        Q, V_r = thin_qr_factorization_OTS_No_Householder(V_t, threshold)
+        Q, V_r = thin_qr_factorization_OTS_No_Householder(V_t)
         #print('V_r', V_r)
         qr_time = time.time() - start_time
         start_time = time.time()
@@ -481,7 +481,7 @@ def start_OTS_No_Householder(A, k, c_name='class', m_name='matrix', t_name='test
         #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        U_t = backward_substitution_OTS(AQ, np.transpose(V_r), threshold)
+        U_t = backward_substitution_OTS(AQ, np.transpose(V_r))
         #print('U_t', U_t)
         bw_time = time.time() - start_time
     
@@ -508,15 +508,15 @@ def start_OTS_No_Householder(A, k, c_name='class', m_name='matrix', t_name='test
 
         # computing V
         start_time = time.time()
-        Q, U_r = thin_qr_factorization_OTS_No_Householder(U_t, threshold)
+        Q, U_r = thin_qr_factorization_OTS_No_Householder(U_t)
         #print('U_r', U_r)
         qr_time = time.time() - start_time
         start_time = time.time()
-        AQ = A@Q
+        AQ = A.T@Q
         #print('AQ', AQ)
         manip_time = time.time() - start_time
         start_time = time.time()
-        V_t = backward_substitution_OTS(AQ, np.transpose(U_r), threshold)
+        V_t = backward_substitution_OTS(AQ, np.transpose(U_r))
         #print('V_t', V_t)
         bw_time = time.time() - start_time
 
