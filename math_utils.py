@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import random
 
-def thin_qr_factorization_OTS(A):
+def thin_qr_factorization_OTS(A, threshold = None):
     """
     Perform a thin QR factorization using the off-the-shelf LAPACK routines.
     
@@ -19,6 +19,10 @@ def thin_qr_factorization_OTS(A):
     V (list): A list containing the Householder vectors.
     """
     m, n = A.shape
+
+    if not threshold:
+        eps = np.finfo(float).eps
+        threshold = eps * np.max(np.abs(A))
     
     # Compute QR factorization using dgeqrf
     # Returns R (in the upper triangle) and the Householder vectors (in the lower triangle)
@@ -38,7 +42,10 @@ def thin_qr_factorization_OTS(A):
         v[0] = 1.0  # Set the implicit 1 for the Householder vector
 
         # Normalize the vector
-        v /= np.linalg.norm(v)
+        if np.max(np.abs(v)) > threshold:  
+            v /= np.linalg.norm(v)
+        else:
+            v = np.zeros_like(v)
 
         householder_vectors.append(v)
     
@@ -60,7 +67,7 @@ def thin_qr_factorization_OTS_No_Householder(A):
     return Q, R 
 
 def backward_substitution_OTS(A, T):
-
+    #TODO check errors
     """
     Perform backward substitution to solve XT = A row by row using scipy.linalg.solve_triangular.
 
