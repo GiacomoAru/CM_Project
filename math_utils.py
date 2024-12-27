@@ -395,7 +395,7 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
         'm':[], 'n':[], 'k':[], 
         'iteration':[], 'exec_time':[], 
         'qr_time':[], 'manip_time':[], 'bw_time':[],
-        'obj_fun':[], # 'UV_norm':[],
+        'obj_fun':[], 'obj_fun_rel':[],
         'U_norm':[], 'V_norm':[]
     }
     
@@ -433,10 +433,12 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
             
             A = np.load((subfolder / 'A.npy').absolute())
             U = np.load((subfolder / 'U.npy').absolute())
-            
+
             global_df['m'].append(A.shape[0])
             global_df['n'].append(A.shape[1])
             global_df['k'].append(U.shape[1])
+            
+            global_df['obj_fun_rel'].append(global_df['obj_fun'][-1] / np.linalg.norm(A, 'fro'))
     
     global_df = pd.DataFrame(global_df)       
     global_df.to_csv(save_path, index=False)

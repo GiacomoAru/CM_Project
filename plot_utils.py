@@ -46,7 +46,7 @@ def show_grayscale_images(matrices, cols=3, names=None):
     plt.show()
 
 
-def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True)):
+def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True), data_dir='./data/test'):
     fig = go.Figure()
     
     # Ensure inputs are lists
@@ -62,10 +62,15 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
     else:
         for c_name, m_name, t_name in zip(c_names, m_names, t_names):
             # Load the data
-            df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
+            df = pd.read_csv(f'{data_dir}/{c_name}/{m_name}/{t_name}/data.csv')
             if col == 'error':
                 df['error'] = df['obj_fun'] - df['obj_fun'].min()
-
+            if col == 'obj_fun_rel':
+                A = np.load((f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy').absolute())
+                df['obj_fun_rel'] = df['obj_fun'] / np.linalg.norm(A, 'fro')
+            if col == 'U-V_norm':
+                df['U-V_norm'] = abs(df['U_norm'] - df['V_norm'])
+                
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -98,12 +103,15 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
         )
     return fig
 
-def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time'], 
-                   logscale=(False, True)):
+def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'obj_fun_rel', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time'], 
+                   logscale=(False, True), data_dir='./data/test'):
 
     # Load the data
-    df = pd.read_csv(f'./data/test/{c_name}/{m_name}/{t_name}/data.csv')
+    df = pd.read_csv(f'{data_dir}/{c_name}/{m_name}/{t_name}/data.csv')
+    A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
+    
     df['error'] = df['obj_fun'] - df['obj_fun'].min()
+    df['obj_fun_rel'] = df['obj_fun'] / np.linalg.norm(A, 'fro')
 
     # Single plot: Objective function and norms, followed by timing data
     fig = go.Figure()
@@ -332,18 +340,33 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
     
     # Apply filters
     for fun in filter:
-        old_df = old_df[filter[fun](old_df[fun])]
+        try:
+            old_df = old_df[filter[fun](old_df[fun])]
+        except:
+            continue
     for c in new_col:
         old_df[c] = new_col[c](old_df)
+    for fun in filter:
+        try:
+            old_df = old_df[filter[fun](old_df[fun])]
+        except:
+            continue
+    
+    
     
     # Create new columns
     old_df['m_n'] = old_df['m'] * old_df['n']
     old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm'])
+    old_df['exec_time_tot'] = old_df['exec_time']*old_df['iteration']
+    
+    # Substitute every value different from 1e-15 and 1e-08 in the epsilon column
+    old_df['epsilon'] = old_df['epsilon'].apply(lambda x: 1e-15 if abs(x - 1e-15) < abs(x - 1e-08) else 1e-08).astype('float64')
     
     cols_to_show = []
     # Filter columns to show
-    for col in old_df.columns:
-        if col == x or col == y:
+    for col in old_df.columns:   
+        
+        if col == x or col == y or col == 'date':
             continue
         else:
             if not pd.api.types.is_numeric_dtype(old_df[col]):
@@ -363,6 +386,12 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
                 else:
                     cols_to_show.append(col)
             else:
+                
+                if old_df[col].nunique() == 1:
+                    print(col, 'has only one value:', old_df[col].iloc[0])
+                    continue
+
+                    
                 df = old_df.groupby([x, y]).agg(
                     mean=(col, 'mean')
                 )
@@ -451,7 +480,7 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
             ser = np.log(df['mean'] + 1)
             df['color'] = ((ser - min(ser)) / (max(ser) - min(ser)))
             tickvals = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-            ticklabels = [f'{val:.3}' for val in np.exp((np.array(tickvals) * (ser.max() - ser.min()) + ser.min())) - 1]
+            ticklabels = [f'{val:.3}' for val in np.exp(np.array(tickvals) * (ser.max() - ser.min()) + ser.min()) - 1]
             
             text = [
                 f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}<br>{y}={yval}<br>x_mean={xm}<br>y_mean={ym}"
