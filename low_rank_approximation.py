@@ -77,7 +77,7 @@ def backward_substitution(A, T, threshold=None):
         if np.abs(T[i,i]) <= threshold and np.all(A[:,i] <= threshold):
             X[:,i] = 0.0
         elif np.abs(T[i,i]) <= threshold:
-            # print('OMEGA GIGA ERROR AIAIAAI')
+            # print('Strage things is appening')
             X[:,i] = 0.0
         else:
             X[:,i] = (A[:,i] - np.sum( (T[i+1:,i] * X[:,i+1:]), 1)) * (1/T[i,i])

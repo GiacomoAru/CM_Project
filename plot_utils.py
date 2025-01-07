@@ -353,7 +353,6 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
             continue
     
     
-    
     # Create new columns
     old_df['m_n'] = old_df['m'] * old_df['n']
     old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm'])

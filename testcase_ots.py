@@ -32,4 +32,4 @@ for horse, pok in zip([Path('./data/img/horse/horse216.png')],[Path('./data/img/
         start_OTS_Householder(P, k, 'g_ots', 'p_' + pok.name, 'Householder_' + f'{k}', methods, epsilon=epsilon)
         start_OTS_No_Householder(P, k, 'g_ots', 'p_' + pok.name, 'No_Householder_' + f'{k}', methods, epsilon=epsilon)
     
-    i +=1
+    i +=1   
