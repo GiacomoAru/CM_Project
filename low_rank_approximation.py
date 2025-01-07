@@ -349,7 +349,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
         
         # computing U
         start_time = time.time()
-        V_r, householder_vectors = thin_qr_factorization_OTS(V_t)
+        V_r, householder_vectors = thin_qr_factorization_OTS(V_t, threshold)
         #print('V_r', V_r)
         qr_time = time.time() - start_time
         start_time = time.time()
@@ -384,7 +384,7 @@ def start_OTS_Householder(A, k, c_name='class', m_name='matrix', t_name='test', 
 
         # computing V
         start_time = time.time()
-        U_r, householder_vectors = thin_qr_factorization_OTS(U_t)
+        U_r, householder_vectors = thin_qr_factorization_OTS(U_t, threshold)
         #print('U_r', U_r)
         qr_time = time.time() - start_time
         start_time = time.time()
