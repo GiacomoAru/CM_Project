@@ -452,7 +452,7 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
     global_df.to_csv(save_path, index=False)
 
 
-def compute_global_minimum(A, k):
+def compute_global_minimum_2(A, k):
 
     U, S, VT = np.linalg.svd(A, full_matrices=False)
 
@@ -464,7 +464,7 @@ def compute_global_minimum(A, k):
 
     return A_k
 
-def compute_global_minimum_sparse(A, k):
+def compute_global_minimum(A, k):
 
     # Decomposizione SVD troncata
     U, S, VT = svds(A, k=k)
