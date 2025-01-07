@@ -475,3 +475,5 @@ def compare_solution_with_global_min(A, k, UVT):
 
     A_k = compute_global_minimum(A, k)
     error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
+
+    return error_relative
