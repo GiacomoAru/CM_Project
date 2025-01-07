@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import solve, solve_triangular
 from scipy.linalg.lapack import dgeqrf, dorgqr
+from scipy.sparse.linalg import svds
 import numpy as np
 import pandas as pd
 import json 
@@ -450,3 +451,27 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
     global_df = pd.DataFrame(global_df)       
     global_df.to_csv(save_path, index=False)
 
+
+def compute_global_minimum_2(A, k):
+
+    U, S, VT = np.linalg.svd(A, full_matrices=False)
+
+    # Ricostruzione della matrice a rango ridotto
+    U_k = U[:, :k]
+    S_k = np.diag(S[:k])
+    VT_k = VT[:k, :]
+    A_k = U_k @ S_k @ VT_k
+
+    return A_k
+
+def compute_global_minimum(A, k):
+
+    # Decomposizione SVD troncata
+    U, S, VT = svds(A, k=k)
+    A_k = U @ np.diag(S) @ VT
+    return A_k
+
+def compare_solution_with_global_min(A, k, UVT):
+
+    A_k = compute_global_minimum(A, k)
+    error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
