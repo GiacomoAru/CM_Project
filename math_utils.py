@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import solve, solve_triangular
 from scipy.linalg.lapack import dgeqrf, dorgqr
+from scipy.sparse.linalg import svds
 import numpy as np
 import pandas as pd
 import json 
@@ -463,7 +464,14 @@ def compute_global_minimum(A, k):
 
     return A_k
 
+def compute_global_minimum_sparse(A, k):
+
+    # Decomposizione SVD troncata
+    U, S, VT = svds(A, k=k)
+    A_k = U @ np.diag(S) @ VT
+    return A_k
+
 def compare_solution_with_global_min(A, k, UVT):
-    
+
     A_k = compute_global_minimum(A, k)
     error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
