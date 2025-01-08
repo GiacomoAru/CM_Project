@@ -386,11 +386,22 @@ def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}, test_
         ret[el] = np.load(f'{test_dir}/{c_name}/{m_name}/{t_name}/{el}.npy')
     return ret
 
-def load_global_df(dataframe_path = './data/global_data.csv', filter={}):
+def load_global_df(dataframe_path = './data/global_data.csv', filter={},  new_col={}):
     df = pd.read_csv(dataframe_path)
    
+    # Apply filters
     for fun in filter:
-        df = df[filter[fun](df[fun])] 
+        try:
+            df = df[filter[fun](df[fun])]
+        except:
+            continue
+    for c in new_col:
+        df[c] = new_col[c](df)
+    for fun in filter:
+        try:
+            df = df[filter[fun](df[fun])]
+        except:
+            continue
         
     return df
 
@@ -400,11 +411,11 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
         'c_name':[], 'm_name':[], 't_name':[], 
         'init_method':[], 'epsilon':[],
         'pc_name':[], 'date':[],
-        'm':[], 'n':[], 'k':[], 
-        'iteration':[], 'exec_time':[], 
+        'm':[], 'n':[], 'm*n':[], 'k':[], 
+        'n_iteration':[], 'step_time':[], 'tot_time':[],
         'qr_time':[], 'manip_time':[], 'bw_time':[],
-        'obj_fun':[], 'obj_fun_rel':[],
-        'U_norm':[], 'V_norm':[]
+        'obj_fun_abs':[], 'obj_fun_rel':[], 'error_ratio':[],
+        'U_norm':[], 'V_norm':[], 'U_V_norm_diff':[], 'A_rank':[],
     }
     
     # Iterate over all directories and subdirectories
@@ -417,6 +428,12 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
             with open(subfolder / 'pc_info.json', 'r') as f:
                 pc_info = json.loads(f.read())
                 
+            print(subfolder.absolute())
+            
+            A = np.load((subfolder / 'A.npy').absolute())
+            U = np.load((subfolder / 'U.npy').absolute())
+            V = np.load((subfolder / 'V.npy').absolute())
+            
             global_df['c_name'].append(input_values['c_name'])
             global_df['m_name'].append(input_values['m_name'])
             global_df['t_name'].append(input_values['t_name'])
@@ -427,26 +444,29 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
             global_df['pc_name'].append(pc_info['pc_name'])
             global_df['date'].append(input_values['date'])
             
-            global_df['iteration'].append(dummy_df['iteration_id'].values[-1])
+            global_df['n_iteration'].append(dummy_df['iteration_id'].values[-1])
             
             global_df['qr_time'].append(np.mean(dummy_df['qr_time'].values))
             global_df['manip_time'].append(np.mean(dummy_df['manip_time'].values))
             global_df['bw_time'].append(np.mean(dummy_df['bw_time'].values))
-            global_df['exec_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
-    
-            global_df['obj_fun'].append(dummy_df['obj_fun'].values[-1])
-            # global_df['UV_norm'].append(dummy_df['UV_norm'].values[-1])
+            global_df['step_time'].append(global_df['qr_time'][-1] + global_df['manip_time'][-1] + global_df['bw_time'][-1])
+            global_df['tot_time'].append(global_df['step_time'][-1]*global_df['n_iteration'][-1])
+            
+            global_df['obj_fun_abs'].append(dummy_df['obj_fun'].values[-1])
+            global_df['obj_fun_rel'].append(global_df['obj_fun_abs'][-1] / np.linalg.norm(A, 'fro'))
+            global_df['error_ratio'].append(compare_solution_with_global_min(A, U.shape[1], U @ V.T))
+            
             global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
             global_df['V_norm'].append(dummy_df['V_norm'].values[-1])
+            global_df['U_V_norm_diff'].append(abs(global_df['U_norm'][-1] - global_df['V_norm'][-1]))
+            global_df['A_rank'].append(np.linalg.matrix_rank(A))
             
-            A = np.load((subfolder / 'A.npy').absolute())
-            U = np.load((subfolder / 'U.npy').absolute())
-
             global_df['m'].append(A.shape[0])
             global_df['n'].append(A.shape[1])
+            global_df['m*n'].append(global_df['m'][-1] * global_df['n'][-1])
             global_df['k'].append(U.shape[1])
             
-            global_df['obj_fun_rel'].append(global_df['obj_fun'][-1] / np.linalg.norm(A, 'fro'))
+            
     
     global_df = pd.DataFrame(global_df)       
     global_df.to_csv(save_path, index=False)
@@ -473,7 +493,7 @@ def compute_global_minimum(A, k):
 
 def compare_solution_with_global_min(A, k, UVT):
 
-    A_k = compute_global_minimum(A, k)
+    A_k = compute_global_minimum_2(A, k)
     error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
 
     return error_relative

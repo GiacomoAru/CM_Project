@@ -321,7 +321,10 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
 
     return fig
 
-def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, True), dataframe_path='./data/global_data.csv'):
+def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
+                       filter={}, new_col={}, remove_outliers = 0, 
+                       logscale=(True, True), fig_sisze = (1050,650),
+                       dataframe_path='./data/global_data.csv', df=None):
     """
     Plots aggregated global dataframe with various columns to show.
     
@@ -333,8 +336,11 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
     """
     
     # Load the global data
-    old_df = pd.read_csv(dataframe_path)
-    
+    if df is None:
+        old_df = pd.read_csv(dataframe_path)
+    else:
+        old_df = df.copy()
+        
     base_size = 10
     step_size = 5
     
@@ -351,15 +357,11 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
             old_df = old_df[filter[fun](old_df[fun])]
         except:
             continue
-    
-    
-    # Create new columns
-    old_df['m_n'] = old_df['m'] * old_df['n']
-    old_df['U-V_norm'] = abs(old_df['U_norm'] - old_df['V_norm'])
-    old_df['exec_time_tot'] = old_df['exec_time']*old_df['iteration']
+    for col in remove_col:
+        old_df = old_df.drop(col, axis=1)
     
     # Substitute every value different from 1e-15 and 1e-08 in the epsilon column
-    old_df['epsilon'] = old_df['epsilon'].apply(lambda x: 1e-15 if abs(x - 1e-15) < abs(x - 1e-08) else 1e-08).astype('float64')
+    # old_df['epsilon'] = old_df['epsilon'].apply(lambda x: 1e-15 if abs(x - 1e-15) < abs(x - 1e-08) else 1e-08).astype('float64')
     
     cols_to_show = []
     # Filter columns to show
@@ -459,7 +461,9 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
         
         # Numerical column
         else:
-            df = old_df.groupby([x, y]).agg(
+            df = old_df.drop(old_df[col].nlargest(remove_outliers).index.union(old_df[col].nsmallest(remove_outliers).index))
+            
+            df = df.groupby([x, y]).agg(
                 mean=(col, 'mean'),
                 var=(col, 'var'),
                 count=(col, 'count'),
@@ -532,8 +536,8 @@ def plot_agg_global_df(x='m_n', y='k', filter={}, new_col={}, logscale=(True, Tr
     # Update layout with titles and dimensions
     fig.update_layout(
         title=f'Global Dataframe ({len(old_df)} total tests)',
-        height=600,
-        width=1050,
+        height=fig_sisze[1],
+        width=fig_sisze[0],
         template="plotly",
         xaxis_title=x,
         yaxis_title=y
