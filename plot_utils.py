@@ -49,6 +49,7 @@ def show_grayscale_images(matrices, cols=3, names=None):
 def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True), data_dir='./data/test'):
     fig = go.Figure()
     
+    
     # Ensure inputs are lists
     if isinstance(c_names, str):
         c_names = [c_names]
@@ -66,11 +67,12 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
             if col == 'error':
                 df['error'] = df['obj_fun'] - df['obj_fun'].min()
             if col == 'obj_fun_rel':
-                A = np.load((f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy').absolute())
+                
+                A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
                 df['obj_fun_rel'] = df['obj_fun'] / np.linalg.norm(A, 'fro')
             if col == 'U-V_norm':
                 df['U-V_norm'] = abs(df['U_norm'] - df['V_norm'])
-                
+            
             fig.add_trace(
                 go.Scatter(
                     x=df.index,
@@ -103,21 +105,25 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
         )
     return fig
 
-def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'obj_fun_rel', 'U_norm', 'V_norm', 'error', 'qr_time','manip_time','bw_time'], 
-                   logscale=(False, True), data_dir='./data/test'):
-
+def plot_dataframe(c_name, m_name, t_name, remove_col=[], 
+                   logscale=(False, True), data_dir='./data/test',
+                   title='title', fig_size = (1000,500), font_size=12):
     # Load the data
     df = pd.read_csv(f'{data_dir}/{c_name}/{m_name}/{t_name}/data.csv')
     A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
+    U = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/U.npy')
+    V = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/V.npy')
     
-    df['error'] = df['obj_fun'] - df['obj_fun'].min()
-    df['obj_fun_rel'] = df['obj_fun'] / np.linalg.norm(A, 'fro')
-
+    A_norm = np.linalg.norm(A, 'fro')
+    UV_norm = np.linalg.norm(U @ V.T, 'fro')
+    
     # Single plot: Objective function and norms, followed by timing data
     fig = go.Figure()
-
+    
     # Add traces for objective function and norms
-    for col in cols:#, 'UV_norm']:
+    for col in df.columns:
+        if col in remove_col:
+            continue
         fig.add_trace(
             go.Scatter(
                 x=df.index,
@@ -129,11 +135,43 @@ def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'obj_fun_rel', 'U_no
             )
         )
 
+    # Add the A norm as a horizontal line trace (this will appear in the legend)
+    if not ('A_norm' in remove_col):
+        fig.add_trace(
+            go.Scatter(
+                x=[df.index.min(), df.index.max()],
+                y=[A_norm, A_norm],
+                mode='lines',
+                name=f"A_norm",
+                line=dict(
+                    color='red',
+                    width=2,
+                    dash='dash'
+                ),
+                showlegend=True
+            )
+        )
+    if not ('UV_norm' in remove_col):
+        fig.add_trace(
+            go.Scatter(
+                x=[df.index.min(), df.index.max()],
+                y=[UV_norm, UV_norm],
+                mode='lines',
+                name=f"UV_norm",
+                line=dict(
+                    color='cyan',
+                    width=2,
+                    dash='dash'
+                ),
+                showlegend=True
+            )
+        )
+
     # Update layout for the figure
     fig.update_layout(
-        title=f'Plotting: {c_name}/{m_name}/{t_name}',
-        height=500,
-        width=1050,
+        title=title,
+        height=fig_size[1],
+        width=fig_size[0],
         template="plotly",
         xaxis_title="iteration",
         yaxis=dict(type='log'),
@@ -143,9 +181,11 @@ def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'obj_fun_rel', 'U_no
             x=0.5,
             xanchor='center',
             yanchor='top'
-        )
+        ),
+        font=dict(size=font_size)
     )
     
+    # Log scale for axes, if specified
     if logscale[0]:
         fig.update_layout(
             xaxis=dict(type='log')
@@ -156,6 +196,7 @@ def plot_dataframe(c_name, m_name, t_name, cols=['obj_fun', 'obj_fun_rel', 'U_no
         )
 
     return fig
+
 
 '''
 def plot_global_df(x='m_n', y='k', filter={}):
@@ -324,7 +365,7 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
 def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
                        dataframe_path='./data/global_data.csv', df=None,
                        filter={}, new_col={}, remove_outliers=0, 
-                       logscale=(True, True), fig_sisze=(1050, 650),
+                       logscale=(True, True), fig_size=(1100, 600),
                        title='Title', font_size=12):
     """
     Plots aggregated global dataframe with various columns to show.
@@ -343,9 +384,10 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     else:
         old_df = df.copy()
         
-    base_size = 10
-    step_size = 5
+    base_size = 16
+    step_size = 4
     color_scale = px.colors.qualitative.Set1
+    color_scale_2 = px.colors.qualitative.Alphabet
     
     # Apply filters
     for fun in filter:
@@ -360,20 +402,19 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
             old_df = old_df[filter[fun](old_df[fun])]
         except:
             continue
-    for col in remove_col:
-        old_df = old_df.drop(col, axis=1)
+
     
     cols_to_show = []
     # Filter columns to show
     for col in old_df.columns:   
         
-        if col == x or col == y or col == 'date':
+        if col == x or col == y or col in remove_col:
             continue
         else:
             if not pd.api.types.is_numeric_dtype(old_df[col]):
                 
                 categories = old_df[col].unique()
-                if len(categories) > len(color_scale):
+                if len(categories) > len(color_scale_2):
                     print(col, 'has too many categories')
                     continue
                 
@@ -412,7 +453,10 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
         # Category column
         if not pd.api.types.is_numeric_dtype(old_df[col]):
             categories = old_df[col].unique()
-            colormap = color_scale[:len(categories)]
+            if len(categories) <= len(color_scale):
+                colormap = color_scale[:len(categories)]
+            else:
+                colormap = color_scale_2[:len(categories)]
             color_map = {category: colormap[i] for i, category in enumerate(categories)}
             
             df = old_df.groupby([x, y]).agg(
@@ -477,10 +521,14 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
             else:
                 df['size'] = np.log(df['count'] - df['count'].min() + 1) * step_size + base_size
             
-            ser = np.log(df['mean'] + 1)
-            df['color'] = ((ser - min(ser)) / (max(ser) - min(ser)))
-            tickvals = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-            ticklabels = [f'{val:.3}' for val in np.exp(np.array(tickvals) * (ser.max() - ser.min()) + ser.min()) - 1]
+            # Applicazione del logaritmo e normalizzazione
+            ser = np.log1p(df['mean'])  # np.log1p(x) = log(1 + x), più stabile per valori vicini a 0
+            ser_norm = (ser - ser.min()) / (ser.max() - ser.min())  # Normalizzazione tra 0 e 1
+            df['color'] = ser_norm
+
+            # Tick labels per distinguere meglio i valori tra 0 e 1
+            tickvals = np.linspace(0, 1, 6)  # Valori per i tick nella scala normalizzata
+            ticklabels = [f'{val:.3f}' for val in (np.expm1(tickvals * (ser.max() - ser.min()) + ser.min()))]
             
             text = [
                 f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}<br>{y}={yval}<br>x_mean={xm}<br>y_mean={ym}"
@@ -533,8 +581,8 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     # Update layout with titles, dimensions, and font size
     fig.update_layout(
         title=title + f' ({len(old_df)} total runs)',
-        height=fig_sisze[1],
-        width=fig_sisze[0],
+        height=fig_size[1],
+        width=fig_size[0],
         template="plotly",
         xaxis_title=x,
         yaxis_title=y,
