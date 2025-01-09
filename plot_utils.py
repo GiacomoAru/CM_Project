@@ -322,9 +322,10 @@ def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
     return fig
 
 def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
-                       filter={}, new_col={}, remove_outliers = 0, 
-                       logscale=(True, True), fig_sisze = (1050,650),
-                       dataframe_path='./data/global_data.csv', df=None):
+                       dataframe_path='./data/global_data.csv', df=None,
+                       filter={}, new_col={}, remove_outliers=0, 
+                       logscale=(True, True), fig_sisze=(1050, 650),
+                       title='Title', font_size=12):
     """
     Plots aggregated global dataframe with various columns to show.
     
@@ -332,6 +333,7 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     :param y: Column name for y-axis.
     :param filter: Dictionary of filter functions to apply on the dataframe.
     :param logscale: Tuple indicating whether to use log scale for x and y axes.
+    :param font_size: Font size for plot text and labels.
     :return: Plotly figure object.
     """
     
@@ -343,6 +345,7 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
         
     base_size = 10
     step_size = 5
+    color_scale = px.colors.qualitative.Set1
     
     # Apply filters
     for fun in filter:
@@ -360,9 +363,6 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     for col in remove_col:
         old_df = old_df.drop(col, axis=1)
     
-    # Substitute every value different from 1e-15 and 1e-08 in the epsilon column
-    # old_df['epsilon'] = old_df['epsilon'].apply(lambda x: 1e-15 if abs(x - 1e-15) < abs(x - 1e-08) else 1e-08).astype('float64')
-    
     cols_to_show = []
     # Filter columns to show
     for col in old_df.columns:   
@@ -371,11 +371,11 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
             continue
         else:
             if not pd.api.types.is_numeric_dtype(old_df[col]):
+                
                 categories = old_df[col].unique()
-                if len(categories) > len(px.colors.qualitative.Alphabet):
+                if len(categories) > len(color_scale):
                     print(col, 'has too many categories')
                     continue
-                colormap = {category: px.colors.qualitative.Alphabet[i] for i, category in enumerate(categories)}
                 
                 df = old_df.groupby([x, y]).agg(
                     c_col=(col, lambda series: series.mode().iloc[0])
@@ -392,7 +392,7 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
                     print(col, 'has only one value:', old_df[col].iloc[0])
                     continue
 
-                    
+                
                 df = old_df.groupby([x, y]).agg(
                     mean=(col, 'mean')
                 )
@@ -412,10 +412,7 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
         # Category column
         if not pd.api.types.is_numeric_dtype(old_df[col]):
             categories = old_df[col].unique()
-            if len(categories) > len(px.colors.qualitative.Alphabet):
-                print(col, 'has too many categories')
-                continue
-            colormap = px.colors.qualitative.Alphabet[:len(categories)]
+            colormap = color_scale[:len(categories)]
             color_map = {category: colormap[i] for i, category in enumerate(categories)}
             
             df = old_df.groupby([x, y]).agg(
@@ -533,14 +530,15 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
         ]
     )
     
-    # Update layout with titles and dimensions
+    # Update layout with titles, dimensions, and font size
     fig.update_layout(
-        title=f'Global Dataframe ({len(old_df)} total tests)',
+        title=title + f' ({len(old_df)} total runs)',
         height=fig_sisze[1],
         width=fig_sisze[0],
         template="plotly",
         xaxis_title=x,
-        yaxis_title=y
+        yaxis_title=y,
+        font=dict(size=font_size)
     )
     
     # Apply log scale if specified
