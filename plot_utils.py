@@ -12,7 +12,7 @@ import random
 import json
 
 
-# old function that uses pyplot
+
 def show_grayscale_images(matrices, cols=3, names=None):
     """
     Displays multiple NumPy matrices as grayscale images in a grid format.
@@ -46,7 +46,22 @@ def show_grayscale_images(matrices, cols=3, names=None):
     plt.show()
 
 
+
 def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True), data_dir='./data/test'):
+    """
+    Plots multiple dataframes using Plotly.
+    Parameters:
+        c_names (list or str): List of category names or a single category name.
+        m_names (list or str): List of model names or a single model name.
+        t_names (list or str): List of test names or a single test name.
+        col (str): Column name to plot. Options are 'error', 'obj_fun_rel', 'U-V_norm'. Default is 'error'.
+        logscale (tuple): Tuple of booleans indicating whether to use log scale for x and y axes respectively. Default is (False, True).
+        data_dir (str): Directory where the data is stored. Default is './data/test'.
+    Returns:
+        lotly.graph_objs._figure.Figure: A Plotly figure object with the plotted data.
+    Raises:
+        ValueError: If the lengths of c_names, m_names, and t_names are not the same.
+    """
     fig = go.Figure()
     
     
@@ -108,6 +123,22 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
 def plot_dataframe(c_name, m_name, t_name, remove_col=[], 
                    logscale=(False, True), data_dir='./data/test',
                    title='title', fig_size = (1000,500), font_size=12):
+    """
+    Plots data from a specified directory using Plotly.
+    Parameters:
+        c_name (str): The name of the category.
+        m_name (str): The name of the model.
+        t_name (str): The name of the test.
+        remove_col (list, optional): List of column names to be removed from the plot. Defaults to [].
+        logscale (tuple, optional): Tuple specifying whether to use log scale for x and y axes. Defaults to (False, True).
+        data_dir (str, optional): Directory where the data is stored. Defaults to './data/test'.
+        title (str, optional): Title of the plot. Defaults to 'title'.
+        fig_size (tuple, optional): Size of the figure in pixels (width, height). Defaults to (1000, 500).
+        font_size (int, optional): Font size for the plot. Defaults to 12.
+    Returns:
+        plotly.graph_objs._figure.Figure: The Plotly figure object.
+    """
+                
     # Load the data
     df = pd.read_csv(f'{data_dir}/{c_name}/{m_name}/{t_name}/data.csv')
     A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
@@ -198,169 +229,6 @@ def plot_dataframe(c_name, m_name, t_name, remove_col=[],
     return fig
 
 
-'''
-def plot_global_df(x='m_n', y='k', filter={}):
-    
-    df = pd.read_csv('./data/global_data.csv')
-    for f in filter:
-        df = df[df[f] == filter[f]]
-    print('Showing', len(df), 'data points')
-    
-    df['m_n'] = df['m']*df['n']
-    
-    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm'] # ,'UV_norm']
-    
-    # Initialize figure
-    fig = go.Figure()
-
-    # Add Traces
-    buttons = []
-    for col in cols_to_show:
-        df['size'] = ((df[col]- min(df[col])) / (max(df[col])-min(df[col])))*50 + 5
-        df['color'] = df[col]
-        fig.add_trace(
-            go.Scatter(x=df[x],
-                    y=df[y],
-                    name=col,
-                    mode='markers',  # Mostra solo i punti
-                    marker=dict(
-                        size=df['size'],  # La dimensione dei punti dipende da z
-                        color=df['color'],  # Il colore dei punti dipende da z
-                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
-                        showscale=True, # Mostra la barra del colore
-                    ),
-                    visible = col == cols_to_show[0],
-                    hoverinfo='text',
-                    text=[f"name={n}<br>{x}={xval}<br>{y}={yval}<br>{col}={c}" 
-                          for n, xval, yval, c in zip(df['m_name'], df['m_n'], df['k'], df[col])])
-                    
-        )
-            
-        visib = [el == col for el in cols_to_show]
-        buttons.append(dict(label=col,
-                            method="update",
-                            args=[{"visible": visib},
-                                    {"annotations": []}]))
-
-    fig.update_layout(
-        updatemenus=[
-            dict(
-                active=0,
-                buttons=buttons,
-                direction="down",
-                pad={"r": 10, "t": 10},
-                showactive=True,
-                x=0.1,
-                xanchor="left",
-                y=1.2,
-                yanchor="top"
-                ),
-        ])
-
-    fig.update_layout(
-            title='value shown:',
-            height=600,
-            width=1050,
-            template="plotly",
-            xaxis_title=x,
-            yaxis_title=y,
-            yaxis=dict(type='log'),
-        )
-
-
-    return fig'''
-
-def plot_global_df(x='m_n', y='k', filter={}, logscale=(True,True)):
-        
-    df = pd.read_csv('./data/global_data.csv')
-    for f in filter:
-        df = df[df[f] == filter[f]]
-    print('Showing', len(df), 'data points')
-    
-    df['m_n'] = df['m']*df['n']    
-    cols_to_show = ['iteration','exec_time','qr_time','manip_time','bw_time','obj_fun','U_norm','V_norm'] # ,'UV_norm']
-    
-    # Initialize figure
-    fig = go.Figure()
-
-    # Add Traces
-    buttons = []
-    for col in cols_to_show:
-        ser = np.log(df[col] + 1)
-        df['size'] = ((ser - min(ser)) / (max(ser)-min(ser)))*50 + 5
-        df['x_mean'] = df.groupby([y])[col].transform('mean')
-        df['y_mean'] = df.groupby([x])[col].transform('mean')
-        df['xy_mean'] = df.groupby([x,y])[col].transform('mean')
-        
-        text = [f"m_name={mn}<br>t_name={tn}<br>{x}={xval}<br>{y}={yval}<br>{col}={c}<br>x_mean={xm}<br>y_mean={ym}<br>xy_mean={xym}" 
-                          for mn, tn, xval, yval, c, xm, ym, xym in zip(df['m_name'], df['t_name'], df[x], df[y], df[col], df['x_mean'], df['y_mean'], df['xy_mean'])]
-        quantiles_size = np.linspace(df['size'].min(), df['size'].max(), 5)
-        
-        quantiles_col = [((val - 5) / 50) * (max(ser) - min(ser)) + min(ser) for val in quantiles_size]
-        quantiles_col = [f'{np.exp(val) - 1:.2}' for val in quantiles_col]
-        
-        fig.add_trace(
-            go.Scatter(x=df[x],
-                    y=df[y],
-                    name=col,
-                    mode='markers',  # Mostra solo i punti
-                    marker=dict(
-                        size=df['size'],  # La dimensione dei punti dipende da z
-                        color=df['size'],  # Il colore dei punti dipende da z
-                        colorscale='spectral',  # Scala cromatica (puoi cambiarla)
-                        showscale=True, # Mostra la barra del colore
-                        colorbar=dict(
-                            tickvals=quantiles_size,  # Valori minimi e massimi
-                            ticktext=quantiles_col  # Testo dei tick
-                        ),
-                    ),
-                    visible = col == cols_to_show[0],
-                    hoverinfo='text',
-                    text=text)
-                    
-        )
-            
-        visib = [el == col for el in cols_to_show]
-        buttons.append(dict(label=col,
-                            method="update",
-                            args=[{"visible": visib},
-                                    {"annotations": []}]))
-
-    fig.update_layout(
-        updatemenus=[
-            dict(
-                active=0,
-                buttons=buttons,
-                direction="down",
-                pad={"r": 10, "t": 10},
-                showactive=True,
-                x=0.125,
-                xanchor="left",
-                y=1.2,
-                yanchor="top"
-                ),
-        ])
-
-    fig.update_layout(
-            title='value shown:',
-            height=600,
-            width=1050,
-            template="plotly",
-            xaxis_title=x,
-            yaxis_title=y
-        )
-
-    if logscale[0]:
-        fig.update_layout(
-            xaxis=dict(type='log')
-        )
-    if logscale[1]:
-        fig.update_layout(
-            yaxis=dict(type='log')
-        )
-            
-
-    return fig
 
 def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
                        dataframe_path='./data/global_data.csv', df=None,
@@ -368,16 +236,23 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
                        logscale=(True, True), fig_size=(1100, 600),
                        title='Title', font_size=12):
     """
-    Plots aggregated global dataframe with various columns to show.
-    
-    :param x: Column name for x-axis.
-    :param y: Column name for y-axis.
-    :param filter: Dictionary of filter functions to apply on the dataframe.
-    :param logscale: Tuple indicating whether to use log scale for x and y axes.
-    :param font_size: Font size for plot text and labels.
-    :return: Plotly figure object.
+    Plots an aggregated global dataframe with various customization options.
+    Parameters:
+        x (str): Column name to be used for the x-axis.
+        y (str): Column name to be used for the y-axis.
+        remove_col (list): List of columns to be removed from the dataframe.
+        dataframe_path (str): Path to the CSV file containing the global data.
+        df (pd.DataFrame, optional): DataFrame to be used instead of loading from a CSV file.
+        filter (dict): Dictionary of functions to filter the dataframe.
+        new_col (dict): Dictionary of functions to create new columns in the dataframe.
+        remove_outliers (int): Number of outliers to remove from the top and bottom of the numerical columns.
+        logscale (tuple): Tuple indicating whether to apply log scale to the x and y axes.
+        fig_size (tuple): Tuple specifying the width and height of the figure.
+        title (str): Title of the plot.
+        font_size (int): Font size for the plot text.
+    Returns:
+        plotly.graph_objs._figure.Figure: A Plotly figure object with the aggregated data plot.
     """
-    
     # Load the global data
     if df is None:
         old_df = pd.read_csv(dataframe_path)
@@ -596,6 +471,8 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
         fig.update_layout(yaxis=dict(type='log'))
     
     return fig
+
+
 
 def load_image_as_grayscale_matrix(image_path):
     """

@@ -1,56 +1,11 @@
 import numpy as np
-from scipy.linalg import solve, solve_triangular
-from scipy.linalg.lapack import dgeqrf, dorgqr
+from scipy.linalg import solve_triangular
 from scipy.sparse.linalg import svds
 import numpy as np
 import pandas as pd
 import json 
 from pathlib import Path
 import random
-
-def thin_qr_factorization_OTS(A, threshold = None):
-    """
-    Perform a thin QR factorization using the off-the-shelf LAPACK routines.
-    
-    Parameters:
-    A (ndarray): The m x n input matrix (m >= n).
-    
-    Returns:
-    R (ndarray): The n x n upper triangular matrix.
-    V (list): A list containing the Householder vectors.
-    """
-    m, n = A.shape
-
-    if not threshold:
-        eps = np.finfo(float).eps
-        threshold = eps * np.max(np.abs(A))
-    
-    # Compute QR factorization using dgeqrf
-    # Returns R (in the upper triangle) and the Householder vectors (in the lower triangle)
-    # Step 1: Compute QR factorization using dgeqrf
-    result = dgeqrf(A, overwrite_a=False)
-    QR = result[0]
-    
-    # Extract R (upper triangular matrix)
-    R = np.triu(QR[:n, :n])
-    
-    # Extract Householder vectors into a list
-    householder_vectors = []
-    for k in range(n):
-
-        v = QR[k:, k]
-
-        v[0] = 1.0  # Set the implicit 1 for the Householder vector
-
-        # Normalize the vector
-        if np.max(np.abs(v)) > threshold:  
-            v /= np.linalg.norm(v)
-        else:
-            v = np.zeros_like(v)
-
-        householder_vectors.append(v)
-    
-    return R, householder_vectors
 
 def thin_qr_factorization_OTS_No_Householder(A):
     """
@@ -84,69 +39,7 @@ def backward_substitution_OTS(A, T):
 
     return X
 
-def objective_function(A, U, V):
-    """
-    Computes the Frobenius norm of the matrix difference (A - U * V^t), where:
-    - A is the matrix to compare,
-    - U and V are matrices or vectors such that their multiplication is valid.
 
-    Parameters:
-        A (numpy.ndarray): The matrix of shape (m, n).
-        U (numpy.ndarray): A matrix or vector with shape (m, k).
-        V (numpy.ndarray): A matrix or vector with shape (k, n).
-
-    Returns:
-        float: The Frobenius norm of (A - U * V).
-    """
-    # Compute the matrix product U * V
-    UV = np.dot(U, np.transpose(V))
-    
-    # Compute the difference A - U * V
-    difference = A - UV
-    
-    # Compute the Frobenius norm of the difference
-    frobenius_norm = np.linalg.norm(difference, 'fro')
-    
-    return frobenius_norm
-
-def create_diagonal_matrix_from_eigenvalues(eigenvalues):
-    """
-    Crea una matrice diagonale con gli autovalori specificati.
-    
-    Args:
-        eigenvalues (list or np.ndarray): Lista o array di autovalori desiderati.
-    
-    Returns:
-        numpy.ndarray: Matrizzazione diagonale con gli autovalori specificati.
-    """
-    # Creare una matrice diagonale con gli autovalori
-    diagonal_matrix = np.diag(eigenvalues)
-    
-    return diagonal_matrix
-
-def create_symmetric_matrix_from_eigenvalues(eigenvalues):
-    """
-    Crea una matrice simmetrica con gli autovalori specificati, ma non diagonale.
-    
-    Args:
-        eigenvalues (list or np.ndarray): Lista di autovalori desiderati.
-    
-    Returns:
-        numpy.ndarray: Matrizzazione simmetrica con gli autovalori specificati, ma non diagonale.
-    """
-    # Numero di autovalori
-    size = len(eigenvalues)
-    
-    # Creiamo una matrice ortogonale Q (random)
-    Q, _ = np.linalg.qr(np.random.rand(size, size))  # Q è una matrice ortogonale
-    
-    # Creiamo la matrice diagonale con gli autovalori
-    Lambda = np.diag(eigenvalues)
-    
-    # Costruire la matrice simmetrica A = Q * Lambda * Q.T
-    A = Q @ Lambda @ Q.T
-    
-    return A
 
 def upscale_bilinear(matrix, output_rows, output_cols):
     """
@@ -220,6 +113,8 @@ def upscale_nearest_neighbor(matrix, output_rows, output_cols):
             upscaled_matrix[i, j] = matrix[nearest_row, nearest_col]
 
     return upscaled_matrix
+
+
 
 def create_random_matrix_with_rank(seed, k, m, n):
     """
@@ -354,8 +249,19 @@ def create_random_matrix_with_eigenvalues(k, eigenvalues, mean=0, std=1):
 
 
 
-
 def keep_n_files(folder, n):
+    """
+    Keep a specified number of random files in a folder and delete the rest.
+    Args:
+        folder (str or Path): The path to the folder containing the files.
+        n (int): The number of files to keep in the folder.
+    Returns:
+        None
+    Notes:
+        - If the folder contains less than or equal to n files, no files will be deleted.
+        - The function randomly selects n files to keep and deletes the rest.
+        - The function prints the names of the files that are removed and a message indicating how many files were kept.
+    """
     # Convert folder to a Path object
     folder_path = Path(folder)
     
@@ -381,12 +287,35 @@ def keep_n_files(folder, n):
     
     
 def load_matrices(c_name, m_name, t_name, matrices={'U', 'V', 'A', 'V_0'}, test_dir='./data/test'):
+    """
+    Load specified matrices from a given directory structure.
+
+    Args:
+        c_name (str): The name of the category or class directory.
+        m_name (str): The name of the matrix directory.
+        t_name (str): The name of the test directory.
+        matrices (set, optional): A set of matrix names to load. Defaults to {'U', 'V', 'A', 'V_0'}.
+        test_dir (str, optional): The base directory where the test data is stored. Defaults to './data/test'.
+
+    Returns:
+        dict: A dictionary where keys are matrix names and values are the loaded numpy arrays.
+    """
     ret = {}
     for el in matrices:
         ret[el] = np.load(f'{test_dir}/{c_name}/{m_name}/{t_name}/{el}.npy')
     return ret
 
 def load_global_df(dataframe_path = './data/global_data.csv', filter={},  new_col={}):
+    """
+    Load a global DataFrame from a CSV file, apply filters, and add new columns.
+    Parameters:
+    dataframe_path (str): The path to the CSV file to load. Default is './data/global_data.csv'.
+    filter (dict): A dictionary where keys are column names and values are functions to filter the DataFrame.
+    new_col (dict): A dictionary where keys are new column names and values are functions to generate the new columns.
+    Returns:
+    pandas.DataFrame: The processed DataFrame with applied filters and new columns.
+    """
+        
     df = pd.read_csv(dataframe_path)
    
     # Apply filters
@@ -406,6 +335,30 @@ def load_global_df(dataframe_path = './data/global_data.csv', filter={},  new_co
     return df
 
 def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global_data.csv'):
+    """
+    Computes global statistics from test data and saves the results to a CSV file.
+    Parameters:
+    test_dir (str): The directory containing the test data. Default is "./data/test".
+    save_path (str): The path where the resulting CSV file will be saved. Default is './data/global_data.csv'.
+    The function iterates over all subdirectories within the specified test directory, 
+    reads relevant data from CSV and JSON files, and computes various statistics. 
+    These statistics include:
+        - c_name, m_name, t_name: Names related to the test configuration.
+        - init_method: Initialization method used.
+        - epsilon: Epsilon value used in the test.
+        - pc_name: Name of the PC used for the test.
+        - date: Date of the test.
+        - m, n, m*n: Dimensions of matrix A.
+        - k: Inner dimention of U and V.
+        - n_iteration: Number of iterations.
+        - step_time, tot_time, qr_time, manip_time, bw_time: Timing information.
+        - obj_fun_abs, obj_fun_rel: Objective function values.
+        - error_ratio: Error ratio compared to global minimum (-1).
+        - U_norm, V_norm, U_V_norm_diff: Norms of matrices U and V.
+        - A_rank: Rank of matrix A.
+    The computed statistics are saved to a CSV file at the specified save_path.
+    """
+    
     main_folder = Path(test_dir)
     global_df = {
         'c_name':[], 'm_name':[], 't_name':[], 
@@ -472,7 +425,16 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
     global_df.to_csv(save_path, index=False)
 
 
-def compute_global_minimum_2(A, k):
+
+def compute_global_minimum(A, k):
+    """
+    Compute the rank-k approximation of matrix A using Singular Value Decomposition (SVD).
+    Parameters:
+        A (numpy.ndarray): The input matrix to be approximated.
+        k (int): The rank for the approximation.
+    Returns:
+        numpy.ndarray: The rank-k approximation of the input matrix A.
+    """
 
     U, S, VT = np.linalg.svd(A, full_matrices=False)
 
@@ -484,16 +446,18 @@ def compute_global_minimum_2(A, k):
 
     return A_k
 
-def compute_global_minimum(A, k):
-
-    # Decomposizione SVD troncata
-    U, S, VT = svds(A, k=k)
-    A_k = U @ np.diag(S) @ VT
-    return A_k
-
 def compare_solution_with_global_min(A, k, UVT):
+    """
+    Compares the given solution with the global minimum of matrix A.
+    Parameters:
+        A (numpy.ndarray): The original matrix.
+        k (int): The rank for the global minimum computation.
+        UVT (numpy.ndarray): The approximated solution matrix.
+    Returns:
+        float: The relative error between the given solution and the global minimum minus 1.
+    """
 
-    A_k = compute_global_minimum_2(A, k)
+    A_k = compute_global_minimum(A, k)
     error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
 
     return error_relative - 1
