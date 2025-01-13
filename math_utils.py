@@ -458,6 +458,12 @@ def compare_solution_with_global_min(A, k, UVT):
     """
 
     A_k = compute_global_minimum(A, k)
-    error_relative = np.linalg.norm(A - UVT, 'fro') / np.linalg.norm(A - A_k, 'fro')
 
-    return error_relative - 1
+    # Funzione obiettivo: Frobenius norm tra matrici
+    f_UVT = np.linalg.norm(A - UVT, 'fro')
+    f_Ak = np.linalg.norm(A - A_k, 'fro')
+
+    # Errore relativo rispetto al minimo globale
+    error_relative = abs(f_UVT - f_Ak) / abs(f_Ak)
+
+    return error_relative
