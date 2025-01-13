@@ -472,6 +472,171 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     
     return fig
 
+def plot_2d_global_df(x='m_n', remove_col=['m', 'n'],
+                       dataframe_path='./data/global_data.csv', df=None,
+                       filter={}, new_col={}, remove_outliers=0, 
+                       logscale=(True, True), fig_size=(1100, 600),
+                       title='Title', font_size=12):
+
+    # Load the global data
+    if df is None:
+        old_df = pd.read_csv(dataframe_path)
+    else:
+        old_df = df.copy()
+
+    # Apply filters
+    for fun in filter:
+        try:
+            old_df = old_df[filter[fun](old_df[fun])]
+        except:
+            continue
+    for c in new_col:
+        old_df[c] = new_col[c](old_df)
+    for fun in filter:
+        try:
+            old_df = old_df[filter[fun](old_df[fun])]
+        except:
+            continue
+
+    
+    cols_to_show = []
+    # Filter columns to show
+    for col in old_df.columns:   
+        
+        if col == x or col in remove_col:
+            continue
+        elif pd.api.types.is_numeric_dtype(old_df[col]):
+                
+            if old_df[col].nunique() == 1:
+                print(col, 'has only one value:', old_df[col].iloc[0])
+                continue
+
+            
+            df = old_df.groupby([x]).agg(
+                mean=(col, 'mean')
+            )
+            
+            if df['mean'].max() == df['mean'].min():
+                print(col, 'has only one vaule:', df['mean'].iloc[0])
+                continue
+            else:
+                cols_to_show.append(col)
+
+    # Initialize figure
+    fig = go.Figure()
+    
+    # Add Traces
+    buttons = []
+    for col in cols_to_show:
+        # numerical only
+        if pd.api.types.is_numeric_dtype(old_df[col]):
+            
+            df = old_df.drop(old_df[col].nlargest(remove_outliers).index.union(old_df[col].nsmallest(remove_outliers).index))
+            
+            df = df.groupby([x]).agg(
+                mean=(col, 'mean'),
+                median=(col, 'median'),
+                max=(col, 'max'),
+                min=(col, 'min'),
+                var=(col, 'var'),
+                count=(col, 'count'),
+                c_c_name=('c_name', lambda series: series.mode().iloc[0]),
+                c_m_name=('m_name', lambda series: series.mode().iloc[0]),
+                c_t_name=('t_name', lambda series: series.mode().iloc[0])
+            ).reset_index()
+            
+            
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}"
+                for cname, mname, tname, xval, mean, var, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df['mean'], df['var'], df['count'])
+            ]
+            fig.add_trace(
+                    go.Scatter(
+                        x=df[x],
+                        y=df['min'],
+                        
+                        mode='lines',  # Modalità lineare
+                        name=col + '_min',
+                        visible=col == cols_to_show[0],
+                        hoverinfo='text',
+                        text=text
+                    )
+                )
+            fig.add_trace(
+                    go.Scatter(
+                        x=df[x],
+                        y=df['max'],
+                        fill='tonexty',
+                        mode='lines',  # Modalità lineare
+                        name=col + '_max',
+                        visible= col == cols_to_show[0],
+                        hoverinfo='text',
+                        text=text
+                    )
+                )
+            
+            to_show = ['mean', 'median', 'var']
+            for ts in to_show:
+                fig.add_trace(
+                    go.Scatter(
+                        x=df[x],
+                        y=df[ts],
+                        mode='lines',  # Modalità lineare
+                        name=col + '_' + ts,
+                        visible=col == cols_to_show[0],
+                        hoverinfo='text',
+                        text=text
+                    )
+                )
+            
+            
+            visib = []#[el == col for el in cols_to_show]
+            for el in cols_to_show:
+                if el == col:
+                    for i in range(len(to_show) + 2):
+                        visib.append(True)
+                else:
+                    for i in range(len(to_show) + 2):
+                        visib.append(False)
+
+            buttons.append(dict(label=col, method="update", args=[{"visible": visib}, {"annotations": []}]))
+    
+    # Update layout with dropdown menu
+    fig.update_layout(
+        updatemenus=[
+            dict(
+                active=0,
+                buttons=buttons,
+                direction="down",
+                pad={"r": 10, "t": 10},
+                showactive=True,
+                x=1,
+                xanchor="right",
+                y=1.15,
+                yanchor="top"
+            ),
+        ]
+    )
+    
+    # Update layout with titles, dimensions, and font size
+    fig.update_layout(
+        title=title + f' ({len(old_df)} total runs)',
+        height=fig_size[1],
+        width=fig_size[0],
+        template="plotly",
+        xaxis_title=x,
+        yaxis_title='value',
+        font=dict(size=font_size)
+    )
+    
+    # Apply log scale if specified
+    if logscale[0]:
+        fig.update_layout(xaxis=dict(type='log'))
+    if logscale[1]:
+        fig.update_layout(yaxis=dict(type='log'))
+    
+    return fig
 
 
 def load_image_as_grayscale_matrix(image_path):
