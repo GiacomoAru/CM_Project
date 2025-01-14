@@ -442,7 +442,7 @@ def compute_global_minimum(A, k):
     U_k = U[:, :k]
     S_k = np.diag(S[:k])
     VT_k = VT[:k, :]
-    A_k = U_k @ S_k @ VT_k
+    A_k = (U_k @ S_k) @ VT_k
 
     return A_k
 
