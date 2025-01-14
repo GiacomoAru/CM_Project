@@ -367,7 +367,7 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
         'm':[], 'n':[], 'm*n':[], 'k':[], 
         'n_iteration':[], 'step_time':[], 'tot_time':[],
         'qr_time':[], 'manip_time':[], 'bw_time':[],
-        'obj_fun_abs':[], 'obj_fun_rel':[], 'error_ratio':[],
+        'obj_fun_abs':[], 'obj_fun_rel':[], 'error_rel':[],
         'U_norm':[], 'V_norm':[], 'U_V_norm_diff':[], 'A_rank':[],
     }
     
@@ -407,7 +407,7 @@ def compute_global_stats_df(test_dir = "./data/test", save_path = './data/global
             
             global_df['obj_fun_abs'].append(dummy_df['obj_fun'].values[-1])
             global_df['obj_fun_rel'].append(global_df['obj_fun_abs'][-1] / np.linalg.norm(A, 'fro'))
-            global_df['error_ratio'].append(compare_solution_with_global_min(A, U.shape[1], U @ V.T))
+            global_df['error_rel'].append(compare_solution_with_global_min(A, U.shape[1], U @ V.T))
             
             global_df['U_norm'].append(dummy_df['U_norm'].values[-1])
             global_df['V_norm'].append(dummy_df['V_norm'].values[-1])

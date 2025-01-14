@@ -11,6 +11,8 @@ import os
 import random
 import json
 
+from math_utils import *
+
 
 
 def show_grayscale_images(matrices, cols=3, names=None):
@@ -47,7 +49,7 @@ def show_grayscale_images(matrices, cols=3, names=None):
 
 
 
-def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(False, True), data_dir='./data/test'):
+def plot_multiple_dataframe(c_names, m_names, t_names, col='error_rel', logscale=(False, True), data_dir='./data/test'):
     """
     Plots multiple dataframes using Plotly.
     Parameters:
@@ -79,8 +81,13 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
         for c_name, m_name, t_name in zip(c_names, m_names, t_names):
             # Load the data
             df = pd.read_csv(f'{data_dir}/{c_name}/{m_name}/{t_name}/data.csv')
-            if col == 'error':
-                df['error'] = df['obj_fun'] - df['obj_fun'].min()
+            if col == 'error_rel':
+                A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
+                U = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/U.npy')
+                global_min_A = compute_global_minimum(A, U.shape[1])
+                global_min = np.linalg.norm(A - global_min_A, 'fro')
+                df['error_rel'] = np.abs(df['obj_fun'] - global_min) / np.abs(global_min)
+                
             if col == 'obj_fun_rel':
                 
                 A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
@@ -93,7 +100,7 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
                     x=df.index,
                     y=df[col],
                     mode='lines',
-                    name=col,
+                    name=f"{c_name} - {m_name} - {t_name}",
                     hoverinfo='text',
                     text=[f"{c_name} - {m_name} - {t_name}<br>{col}: {value}<br>iteration_id: {iter}" 
                             for value, iter in zip(df[col], df['iteration_id'])]
@@ -108,7 +115,7 @@ def plot_multiple_dataframe(c_names, m_names, t_names, col='error', logscale=(Fa
         template="plotly",
         xaxis_title="iteration",
         yaxis_title=col,
-        showlegend=False
+        showlegend=True
     )
     if logscale[0]:
         fig.update_layout(
@@ -144,6 +151,10 @@ def plot_dataframe(c_name, m_name, t_name, remove_col=[],
     A = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/A.npy')
     U = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/U.npy')
     V = np.load(f'{data_dir}/{c_name}/{m_name}/{t_name}/V.npy')
+    
+    global_min_A = compute_global_minimum(A, U.shape[1])
+    global_min = np.linalg.norm(A - global_min_A, 'fro')
+    df['error_rel'] = np.abs(df['obj_fun'] - global_min) / np.abs(global_min)
     
     A_norm = np.linalg.norm(A, 'fro')
     UV_norm = np.linalg.norm(U @ V.T, 'fro')
@@ -403,7 +414,7 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
 
             # Tick labels per distinguere meglio i valori tra 0 e 1
             tickvals = np.linspace(0, 1, 6)  # Valori per i tick nella scala normalizzata
-            ticklabels = [f'{val:.3f}' for val in (np.expm1(tickvals * (ser.max() - ser.min()) + ser.min()))]
+            ticklabels = [f'{val:.3e}' for val in (np.expm1(tickvals * (ser.max() - ser.min()) + ser.min()))]
             
             text = [
                 f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}<br>{y}={yval}<br>x_mean={xm}<br>y_mean={ym}"
@@ -535,69 +546,138 @@ def plot_2d_global_df(x='m_n', remove_col=['m', 'n'],
             
             df = df.groupby([x]).agg(
                 mean=(col, 'mean'),
-                median=(col, 'median'),
+                #median=(col, 'median'),
                 max=(col, 'max'),
                 min=(col, 'min'),
-                var=(col, 'var'),
+                #var=(col, 'var'),
                 count=(col, 'count'),
+                q1=(col, lambda series: series.quantile(0.25)),  # Primo quartile
+                q3=(col, lambda series: series.quantile(0.75)),  # Terzo quartile
                 c_c_name=('c_name', lambda series: series.mode().iloc[0]),
                 c_m_name=('m_name', lambda series: series.mode().iloc[0]),
                 c_t_name=('t_name', lambda series: series.mode().iloc[0])
             ).reset_index()
+
             
-            
+            trace = 'q1'
+            trace_name = col + '_' + trace
             text = [
-                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{col}={mean}<br>var={var}<br>count={count}<br>{x}={xval}"
-                for cname, mname, tname, xval, mean, var, count in 
-                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df['mean'], df['var'], df['count'])
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{trace_name}={yval}<br>count={count}"
+                for cname, mname, tname, xval, yval, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[trace], df['count'])
             ]
             fig.add_trace(
                     go.Scatter(
                         x=df[x],
-                        y=df['min'],
+                        y=df[trace],
                         
                         mode='lines',  # Modalità lineare
-                        name=col + '_min',
+                        line=dict(color='#5FBFF9'),
+                        name=trace_name,
                         visible=col == cols_to_show[0],
                         hoverinfo='text',
                         text=text
                     )
                 )
+            
+            trace = 'q3'
+            trace_name = col + '_' + trace
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{trace_name}={yval}<br>count={count}"
+                for cname, mname, tname, xval, yval, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[trace], df['count'])
+            ]
             fig.add_trace(
                     go.Scatter(
                         x=df[x],
-                        y=df['max'],
-                        fill='tonexty',
+                        y=df[trace],
+                        fill='tonexty'  ,
+                        fillcolor='rgba(95, 191, 249, 0.25)',
+                        
                         mode='lines',  # Modalità lineare
-                        name=col + '_max',
+                        line=dict(color='#5863F8'),
+                        name=trace_name,
                         visible= col == cols_to_show[0],
                         hoverinfo='text',
                         text=text
                     )
                 )
             
-            to_show = ['mean', 'median', 'var']
-            for ts in to_show:
-                fig.add_trace(
+            trace = 'min'
+            trace_name = col + '_' + trace
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{trace_name}={yval}<br>count={count}"
+                for cname, mname, tname, xval, yval, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[trace], df['count'])
+            ]
+            fig.add_trace(
                     go.Scatter(
                         x=df[x],
-                        y=df[ts],
+                        y=df[trace],
+                        
                         mode='lines',  # Modalità lineare
-                        name=col + '_' + ts,
+                        line=dict(color='#5FBFF9',
+                                  dash='dash',),
+                        name=trace_name,
                         visible=col == cols_to_show[0],
                         hoverinfo='text',
                         text=text
                     )
                 )
             
+            trace = 'max'
+            trace_name = col + '_' + trace
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{trace_name}={yval}<br>count={count}"
+                for cname, mname, tname, xval, yval, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[trace], df['count'])
+            ]
+            fig.add_trace(
+                    go.Scatter(
+                        x=df[x],
+                        y=df[trace],
+                        fill='tonexty',
+                        fillcolor='rgba(88, 99, 248, 0.1)',
+                        
+                        mode='lines',  # Modalità lineare
+                        line=dict(color='#5863F8',
+                                  dash='dash',),
+                        name=trace_name,
+                        visible= col == cols_to_show[0],
+                        hoverinfo='text',
+                        text=text
+                    )
+                )
             
-            visib = []#[el == col for el in cols_to_show]
+            
+            trace = 'mean'
+            trace_name = col + '_' + trace
+            text = [
+                f"common_c_name={cname}<br>common_m_name={mname}<br>common_t_name={tname}<br>{x}={xval}<br>{trace_name}={yval}<br>count={count}"
+                for cname, mname, tname, xval, yval, count in 
+                zip(df['c_c_name'], df['c_m_name'], df['c_t_name'], df[x], df[trace], df['count'])
+            ]
+            fig.add_trace(
+                go.Scatter(
+                    x=df[x],
+                    y=df[trace],
+                    mode='lines',  # Modalità lineare
+                    name=trace_name,
+                    visible=col == cols_to_show[0],
+                    hoverinfo='text',
+                    text=text,
+                    line=dict(color='#DD2C4D', width=4)  # Linea rossa e spessa
+                )
+            )
+            
+            
+            visib = []
             for el in cols_to_show:
                 if el == col:
-                    for i in range(len(to_show) + 2):
+                    for i in range(5):
                         visib.append(True)
                 else:
-                    for i in range(len(to_show) + 2):
+                    for i in range(5):
                         visib.append(False)
 
             buttons.append(dict(label=col, method="update", args=[{"visible": visib}, {"annotations": []}]))
