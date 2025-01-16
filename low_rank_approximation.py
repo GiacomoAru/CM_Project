@@ -500,9 +500,6 @@ def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, c_name, m_nam
 
     with open('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/input_values.json', 'r') as f:
         input_values = json.loads(f.read())
-    
-    for key in changes:
-        input_values[key] = changes[key]
 
     del input_values['date']
     

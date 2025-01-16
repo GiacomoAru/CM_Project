@@ -1,15 +1,9 @@
-# from math_utils import *
 from PIL import Image
 import numpy as np
-from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import plotly.express as px
 import matplotlib.pyplot as plt
-from pathlib import Path
 import pandas as pd
-import os
-import random
-import json
 
 from math_utils import *
 
@@ -483,11 +477,28 @@ def plot_agg_global_df(x='m_n', y='k', remove_col=['m', 'n'],
     
     return fig
 
-def plot_2d_global_df(x='m_n', remove_col=['m', 'n'],
+def plot_2d_global_df(x='m_n', remove_col=['m', 'n'],                
                        dataframe_path='./data/global_data.csv', df=None,
                        filter={}, new_col={}, remove_outliers=0, 
                        logscale=(True, True), fig_size=(1100, 600),
                        title='Title', font_size=12):
+    """
+    Plots a 2D global dataframe with various statistical traces.
+    Parameters:
+        x (str): The column name to be used as the x-axis.
+        remove_col (list): List of column names to be removed from the dataframe.
+        dataframe_path (str): Path to the CSV file containing the global data.
+        df (pd.DataFrame, optional): DataFrame to be used instead of loading from a CSV file.
+        filter (dict): Dictionary of filter functions to be applied to the dataframe.
+        new_col (dict): Dictionary of new columns to be added to the dataframe.
+        remove_outliers (int): Number of outliers to remove from both ends of the data.
+        logscale (tuple): Tuple indicating whether to apply log scale to x and y axes.
+        fig_size (tuple): Tuple specifying the figure size (width, height).
+        title (str): Title of the plot.
+        font_size (int): Font size for the plot text.
+    Returns:
+        plotly.graph_objs._figure.Figure: The generated plotly figure.
+    """
 
     # Load the global data
     if df is None:
