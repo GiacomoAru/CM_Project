@@ -179,8 +179,26 @@ def get_starting_matrix(A, k, method='sketching_g', seed=None):
 
 
 def start(A, k, c_name='class', m_name='matrix', t_name='test', init_method='snormal', data_folder='./data/test', 
-          max_iter = 20000, liv_len = 2, epsilon = np.finfo(np.float64).eps, seed=None, V_0=None):
-    
+          max_iter=20000, liv_len=2, epsilon=np.finfo(np.float64).eps, seed=None, V_0=None):
+    """
+    Perform low-rank matrix approximation using an iterative method.
+    Parameters:
+        A (numpy.ndarray): The input matrix to be approximated.
+        k (int): The target rank for the approximation.
+        c_name (str, optional): The class name for the data. Default is 'class'.
+        m_name (str, optional): The matrix name for the data. Default is 'matrix'.
+        t_name (str, optional): The test name for the data. Default is 'test'.
+        init_method (str, optional): The initialization method for the starting matrix. Default is 'snormal'.
+        data_folder (str, optional): The folder to save the data. Default is './data/test'.
+        max_iter (int, optional): The maximum number of iterations. Default is 20000.
+        liv_len (int, optional): The length of the list to store the last iteration values. Default is 2.
+        epsilon (float, optional): The convergence tolerance on objective function. Default is the smallest positive float number.
+        seed (int, optional): The seed for random number generation. Default is None.
+        V_0 (numpy.ndarray, optional): The initial matrix V. Default is None.
+    Returns:
+        None
+    """
+
     if liv_len < 2:
         liv_len = 2
     if max_iter < 1:
@@ -497,12 +515,3 @@ def _save_data(input_values, A, U, V_0, V, data_dict, data_folder, c_name, m_nam
         f.write(json.dumps(input_values))
     with open(directory + "/pc_info.json", 'w+') as f:
         f.write(json.dumps(_full_pc_info()))
-
-    with open('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/input_values.json', 'r') as f:
-        input_values = json.loads(f.read())
-
-    del input_values['date']
-    
-    input_values['A'] = np.load('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/A.npy')
-    input_values['V_0'] = np.load('./data/test/' + c_name + '/' + m_name + '/' + t_name + '/V_0.npy')
-    start(**input_values)
